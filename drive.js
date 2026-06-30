@@ -2,7 +2,7 @@
 // GOOGLE DRIVE INTEGRATION
 // =============================================
 var DRIVE_CLIENT_ID = '1027909595984-c87ot1qdkputt3ijh579f2rr2g8e80dc.apps.googleusercontent.com';
-var DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+var DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 var DRIVE_FOLDER_IDS = {
   kevin:        '19Ld6YRETlW4xQAjZ9iVDMPUDC5XKJjsF',
   ariel:        '14GZ-KP5r1Onz7zZ99NgPiZ2yHz9FM-R-',
