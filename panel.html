@@ -17,6 +17,7 @@
   .drive-status.ok { color: var(--lime); }
   .drive-status.err { color: #e05; }
 </style>
+<style>
   :root {
     --black: #111111;
     --lime: #8DC63F;
@@ -4505,6 +4506,7 @@ updateSelectorStatuses();
 // ================================================================
 
 var comState = {};
+window.comState = comState;
 
 var COM_PERSONS = ['kevin', 'ariel', 'sergio', 'alejandro_com'];
 
@@ -5141,7 +5143,7 @@ function initComercial(person) {
 
 // Update selector statuses for commercial persons
 var _origUpdateStatuses = updateSelectorStatuses;
-function updateSelectorStatuses() {
+updateSelectorStatuses = function() {
   _origUpdateStatuses();
   COM_PERSONS.forEach(function(p) {
     var raw = localStorage.getItem(comStorageKey(p));
