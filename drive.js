@@ -62,6 +62,7 @@ function driveCargar(person) {
         var input = document.getElementById(person + '-json-input');
         if (input) input.value = JSON.stringify(jsonData, null, 2);
         comCargarJSON(person);
+        setTimeout(function(){ renderCampanasEmail(person, jsonData); }, 300);
         driveSetStatus(person, 'load', 'Cargado desde Drive', 'ok');
       })
       .catch(function(e) {
@@ -161,4 +162,78 @@ function driveGuardar(person) {
       });
   });
 }
+
+function renderCampanasEmail(person, jsonData) {
+  // === CAMPANAS Y PRODUCTOS ===
+  var campanas = jsonData.campanas_activas || {};
+  var productos = campanas.productos || [];
+  var activas = campanas.campanas || [];
+
+  // Buscar contenedor de promociones - el panel tiene una seccion de promociones
+  var promoEl = document.getElementById(person + '-promociones-content');
+  if (!promoEl) {
+    // Crear el contenedor si no existe, dentro de la seccion de promociones
+    var promoSection = document.querySelector('#app-' + person + ' [data-tab="promociones"]') ||
+                       document.querySelector('#app-' + person + ' .com-tab-content-promociones');
+    if (!promoSection) {
+      // Buscar la seccion por otro metodo
+      var allSections = document.querySelectorAll('#app-' + person + ' .section');
+      allSections.forEach(function(s) {
+        if (s.id && s.id.indexOf('promo') > -1) promoSection = s;
+      });
+    }
+  }
+
+  // Inyectar en la primera area disponible de promociones
+  var promoTarget = document.getElementById(person + '-promociones-box') ||
+                    document.getElementById(person + '-promo-box') ||
+                    document.querySelector('#app-' + person + ' .com-promo-area');
+
+  var html = '<div style="background:var(--gray-50);border-radius:8px;padding:16px;margin-bottom:12px;">';
+  html += '<h4 style="font-size:13px;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">🚴 Productos a impulsar</h4>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">';
+  productos.forEach(function(p) {
+    html += '<span style="background:var(--black);color:var(--lime);border:1px solid var(--lime);border-radius:4px;padding:3px 8px;font-size:11px;font-weight:600;">' + p + '</span>';
+  });
+  html += '</div>';
+  html += '<h4 style="font-size:13px;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">🔥 Campañas activas</h4>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+  activas.forEach(function(c) {
+    html += '<span style="background:#2a1a00;color:#FFA500;border:1px solid #FFA500;border-radius:4px;padding:3px 10px;font-size:11px;font-weight:600;">' + c + '</span>';
+  });
+  html += '</div></div>';
+
+  if (promoTarget) {
+    promoTarget.innerHTML = html;
+  } else {
+    // Insertar antes del export bar si no hay contenedor especifico
+    var exportBar = document.querySelector('#app-' + person + ' .com-export-bar');
+    if (exportBar) {
+      var div = document.createElement('div');
+      div.id = person + '-campanas-injected';
+      div.innerHTML = html;
+      exportBar.parentNode.insertBefore(div, exportBar);
+    }
+  }
+
+  // === EMAIL ===
+  var emailData = jsonData.email || {};
+  var emailAsunto = emailData.asunto || '';
+  var emailCuerpo = emailData.cuerpo || '';
+
+  var asuntoEl = document.getElementById(person + '-email-asunto');
+  var cuerpoEl = document.getElementById(person + '-email-cuerpo') ||
+                 document.getElementById(person + '-email-preview') ||
+                 document.getElementById(person + '-email-texto');
+
+  if (asuntoEl && emailAsunto) asuntoEl.value = emailAsunto;
+  if (cuerpoEl && emailCuerpo) {
+    if (cuerpoEl.tagName === 'TEXTAREA' || cuerpoEl.tagName === 'INPUT') {
+      cuerpoEl.value = emailCuerpo;
+    } else {
+      cuerpoEl.innerHTML = '<pre style="white-space:pre-wrap;font-family:var(--font-body);font-size:13px;line-height:1.6;">' + emailCuerpo + '</pre>';
+    }
+  }
+}
+
 // =============================================
