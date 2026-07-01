@@ -1,4 +1,4 @@
-// =============================================
+
 // GOOGLE DRIVE INTEGRATION
 // =============================================
 var DRIVE_CLIENT_ID = '1027909595984-c87ot1qdkputt3ijh579f2rr2g8e80dc.apps.googleusercontent.com';
@@ -163,76 +163,47 @@ function driveGuardar(person) {
   });
 }
 
+// =============================================
 function renderCampanasEmail(person, jsonData) {
   // === CAMPANAS Y PRODUCTOS ===
   var campanas = jsonData.campanas_activas || {};
   var productos = campanas.productos || [];
   var activas = campanas.campanas || [];
 
-  // Buscar contenedor de promociones - el panel tiene una seccion de promociones
-  var promoEl = document.getElementById(person + '-promociones-content');
-  if (!promoEl) {
-    // Crear el contenedor si no existe, dentro de la seccion de promociones
-    var promoSection = document.querySelector('#app-' + person + ' [data-tab="promociones"]') ||
-                       document.querySelector('#app-' + person + ' .com-tab-content-promociones');
-    if (!promoSection) {
-      // Buscar la seccion por otro metodo
-      var allSections = document.querySelectorAll('#app-' + person + ' .section');
-      allSections.forEach(function(s) {
-        if (s.id && s.id.indexOf('promo') > -1) promoSection = s;
-      });
-    }
+  var prodEl = document.getElementById(person + '-promo-productos');
+  var campEl = document.getElementById(person + '-promo-campanas');
+
+  if (prodEl && productos.length) {
+    prodEl.innerHTML = productos.map(function(p) {
+      return '<div style="background:var(--black);border:1px solid var(--lime);border-radius:6px;padding:10px 14px;color:var(--lime);font-size:12px;font-weight:700;">' + p + '</div>';
+    }).join('');
   }
 
-  // Inyectar en la primera area disponible de promociones
-  var promoTarget = document.getElementById(person + '-promociones-box') ||
-                    document.getElementById(person + '-promo-box') ||
-                    document.querySelector('#app-' + person + ' .com-promo-area');
-
-  var html = '<div style="background:var(--gray-50);border-radius:8px;padding:16px;margin-bottom:12px;">';
-  html += '<h4 style="font-size:13px;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">🚴 Productos a impulsar</h4>';
-  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">';
-  productos.forEach(function(p) {
-    html += '<span style="background:var(--black);color:var(--lime);border:1px solid var(--lime);border-radius:4px;padding:3px 8px;font-size:11px;font-weight:600;">' + p + '</span>';
-  });
-  html += '</div>';
-  html += '<h4 style="font-size:13px;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">🔥 Campañas activas</h4>';
-  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
-  activas.forEach(function(c) {
-    html += '<span style="background:#2a1a00;color:#FFA500;border:1px solid #FFA500;border-radius:4px;padding:3px 10px;font-size:11px;font-weight:600;">' + c + '</span>';
-  });
-  html += '</div></div>';
-
-  if (promoTarget) {
-    promoTarget.innerHTML = html;
-  } else {
-    // Insertar antes del export bar si no hay contenedor especifico
-    var exportBar = document.querySelector('#app-' + person + ' .com-export-bar');
-    if (exportBar) {
-      var div = document.createElement('div');
-      div.id = person + '-campanas-injected';
-      div.innerHTML = html;
-      exportBar.parentNode.insertBefore(div, exportBar);
-    }
+  if (campEl && activas.length) {
+    campEl.innerHTML = activas.map(function(c) {
+      return '<div style="background:#1a0f00;border:1px solid #FFA500;border-radius:6px;padding:10px 14px;color:#FFA500;font-size:12px;font-weight:700;">🔥 ' + c + '</div>';
+    }).join('');
   }
 
   // === EMAIL ===
   var emailData = jsonData.email || {};
-  var emailAsunto = emailData.asunto || '';
   var emailCuerpo = emailData.cuerpo || '';
+  var emailAsunto = emailData.asunto || '';
 
-  var asuntoEl = document.getElementById(person + '-email-asunto');
-  var cuerpoEl = document.getElementById(person + '-email-cuerpo') ||
-                 document.getElementById(person + '-email-preview') ||
-                 document.getElementById(person + '-email-texto');
+  var bodyEl = document.getElementById(person + '-email-body');
+  if (bodyEl && emailCuerpo) {
+    bodyEl.value = emailCuerpo;
+    // Disparar evento para que el panel guarde el estado
+    bodyEl.dispatchEvent(new Event('input'));
+  }
 
-  if (asuntoEl && emailAsunto) asuntoEl.value = emailAsunto;
-  if (cuerpoEl && emailCuerpo) {
-    if (cuerpoEl.tagName === 'TEXTAREA' || cuerpoEl.tagName === 'INPUT') {
-      cuerpoEl.value = emailCuerpo;
-    } else {
-      cuerpoEl.innerHTML = '<pre style="white-space:pre-wrap;font-family:var(--font-body);font-size:13px;line-height:1.6;">' + emailCuerpo + '</pre>';
-    }
+  // Si hay asunto, buscarlo y rellenarlo
+  var asuntoEl = document.getElementById(person + '-email-subject') ||
+                 document.getElementById(person + '-email-asunto') ||
+                 document.querySelector('#app-' + person + ' input[placeholder*="sunto"]') ||
+                 document.querySelector('#app-' + person + ' input[placeholder*="Asunto"]');
+  if (asuntoEl && emailAsunto) {
+    asuntoEl.value = emailAsunto;
   }
 }
 
