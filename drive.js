@@ -196,16 +196,10 @@ function renderCampanasEmail(person, jsonData) {
   }
 
   // === EMAIL ===
+  // El email se genera cuando el usuario pulsa "Generar email"
+  // No precargamos el cuerpo del JSON para que siempre se genere fresco
   var emailData = jsonData.email || {};
-  var emailCuerpo = emailData.cuerpo || '';
   var emailAsunto = emailData.asunto || '';
-
-  var bodyEl = document.getElementById(person + '-email-body');
-  if (bodyEl && emailCuerpo) {
-    bodyEl.value = emailCuerpo;
-    // Disparar evento para que el panel guarde el estado
-    bodyEl.dispatchEvent(new Event('input'));
-  }
 
   // Si hay asunto, buscarlo y rellenarlo
   var asuntoEl = document.getElementById(person + '-email-subject') ||
