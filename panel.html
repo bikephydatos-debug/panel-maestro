@@ -5270,10 +5270,12 @@ function comGenerarEmailInterno(person, data) {
   var diag = data.diagnostico || {};
   var s = comState[person];
 
+  // Acciones: primero confirmadas del panel, luego del JSON
   var accionesPanel = (s && s.acciones) ? s.acciones.filter(function(a){ return a.confirmada; }) : [];
   var accionesJSON = data.acciones_confirmadas || data.tareas || [];
   var acciones = accionesPanel.length > 0 ? accionesPanel : accionesJSON;
 
+  // Campanas y productos
   var campData = data.campanas_activas || {};
   var productos = campData.productos || [];
   var campanas = campData.campanas || [];
@@ -5284,33 +5286,43 @@ function comGenerarEmailInterno(person, data) {
   var pct = parseFloat(kr.cobros_vs_objetivo_pct) || 0;
   var esPositivo = pct >= 100;
 
+  // KPIs clave
+  var cobros = kr.cobros_eur ? fmtEur(kr.cobros_eur) : '--';
+  var conversion = fmtPct(kr.ratio_conversion_pct);
+  var llamadas = fmtPct(kr.ratio_llamadas_pct);
+
+  // Positivos y negativos
   var posArr = data.positivos || (diag.positivos) || [];
   var negArr = data.negativos || (diag.negativos) || [];
+
+  // Resumen del mes — intro con tono segun resultado
   var resumenMes = diag.resumen_ejecutivo || '';
-
-  // Primer parrafo del resumen — solo la primera frase del diagnostico
-  var primeraFrase = resumenMes.indexOf('.') > -1 ? resumenMes.substring(0, resumenMes.indexOf('.') + 1) : resumenMes;
-
   var introParrafo = '';
   if (esPositivo) {
     introParrafo =
-      primeraFrase + '\n\n' +
+      responsable + ', ' + resumenMes.split('.')[0] + '.' + '\n\n' +
       'Eso no pasa por casualidad. Hay metodo, hay actitud y hay un equipo que esta respondiendo. ' +
       'Quiero que sepas que desde aqui se ve y se valora. Esto es exactamente lo que queremos construir ' +
       '— un equipo que trabaja bien y que disfruta haciendolo.\n\n' +
-      'Con esta base tan buena, el proximo mes se presenta con mucha energia. Vamos a disfrutarlo.';
+      'Con esta base tan buena, ' + _mesNombre(periodo) + ' se presenta con mucha energia. Vamos a disfrutarlo.';
   } else {
     introParrafo =
-      primeraFrase + '\n\n' +
+      responsable + ', ' + resumenMes.split('.')[0] + '.' + '\n\n' +
       'Se que este mes no ha salido como queriamos, pero confio en tu trabajo y en el del equipo. ' +
       'Los numeros son una fotografia del momento, no del potencial que teneis. ' +
       'Estamos aqui para apoyaros y trabajar juntos para darle la vuelta.\n\n' +
-      'Con foco en lo que tenemos que mejorar, el proximo mes va a ser diferente. Contad con nosotros.';
+      'Con foco en lo que tenemos que mejorar, ' + _mesNombre(periodo) + ' va a ser diferente. Contad con nosotros.';
   }
 
-  var posStr = posArr.length > 0 ? posArr.map(function(p){ return '+ ' + p; }).join('\n') : '';
-  var negStr = negArr.length > 0 ? negArr.map(function(n){ return '- ' + n; }).join('\n') : '';
+  // Positivos
+  var posStr = posArr.length > 0 ?
+    posArr.map(function(p){ return '+ ' + p; }).join('\n') : '';
 
+  // Negativos
+  var negStr = negArr.length > 0 ?
+    negArr.map(function(n){ return '- ' + n; }).join('\n') : '';
+
+  // Acciones formateadas 1 por 1
   var accionesStr = '';
   if (acciones.length > 0) {
     accionesStr = acciones.map(function(a, i) {
@@ -5318,47 +5330,49 @@ function comGenerarEmailInterno(person, data) {
       var prior = a.prioridad ? a.prioridad.toUpperCase().replace(/_/g, ' ') : '';
       var plazo = a.plazo || '';
       return (i+1) + '. ' + texto + '\n' +
-        '   ' + (prior ? 'Prioridad: ' + prior : '') + (plazo ? ' | Plazo: ' + plazo : '');
+        (prior ? '   Prioridad: ' + prior : '') +
+        (plazo ? ' | Plazo: ' + plazo : '') ;
     }).join('\n\n');
   } else {
     accionesStr = 'Sin acciones registradas en esta reunion.';
   }
 
+  // Productos 1 por 1
   var productosStr = productos.map(function(p){ return '- ' + p; }).join('\n');
+
+  // Campanas 1 por 1
   var campanasStr = campanas.map(function(c){ return '- ' + c; }).join('\n');
 
+  // Construir email completo
   var email =
     responsable + ', que tal?\n\n' +
     'Un placer como siempre. Te mando esto para que tengamos por escrito todo lo que hablamos hoy.\n\n' +
+
     introParrafo + '\n\n' +
+
     (posStr ? 'Lo que ha ido bien:\n' + posStr + '\n\n' : '') +
+
     (negStr ? 'Lo que tenemos que mejorar:\n' + negStr + '\n\n' : '') +
+
     '---\n\n' +
-    'ACCIONES ACORDADAS\n\n' +
+
+    '== ACCIONES ACORDADAS ==\n\n' +
     'Esto es lo que quedamos. La proxima semana te pregunto por cada punto:\n\n' +
     accionesStr + '\n\n' +
+
     '---\n\n' +
-    (campanasStr ? 'CAMPANAS ACTIVAS\n\n' + campanasStr + '\n\n---\n\n' : '') +
-    (productosStr ? 'PRODUCTOS A IMPULSAR\n\n' + productosStr + '\n\n---\n\n' : '') +
+
+    (campanasStr ? '== CAMPANAS ACTIVAS ==\n\n' + campanasStr + '\n\n---\n\n' : '') +
+
+    (productosStr ? '== PRODUCTOS A IMPULSAR ==\n\n' + productosStr + '\n\n---\n\n' : '') +
+
+    _mesNombre(periodo) + ' arranca con energia y con un equipo comprometido. ' +
     'Cualquier cosa que surja, me dices y lo miramos juntos.\n\n' +
     '!En Bikephilosophy no vendemos bicicletas, hacemos ciclistas felices!\n\n' +
     'Un abrazo,\nJavi';
 
   el.value = email;
   if (s) s.fields['email-body'] = email;
-}
-
-function _mesNombre(periodo) {
-  if (!periodo) return 'El proximo mes';
-  var meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  var lower = periodo.toLowerCase();
-  for (var i = 0; i < meses.length; i++) {
-    if (lower.indexOf(meses[i]) > -1) {
-      var idx2 = meses.indexOf(meses[i]);
-      return idx2 < 11 ? meses[idx2+1].charAt(0).toUpperCase() + meses[idx2+1].slice(1) : 'El proximo mes';
-    }
-  }
-  return 'El proximo mes';
 }
 
 function _mesNombre(periodo) {
