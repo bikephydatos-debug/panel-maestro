@@ -1099,6 +1099,254 @@
   .com-app.visible {
     display: flex !important;
   }
+
+/* ===== TEMA CLARO BIKEPHILOSOPHY ===== */
+.com-app {
+  background: #F5F5F2 !important;
+}
+/* HEADER - fondo negro, tabs blancas bien legibles */
+.com-header {
+  background: #111111 !important;
+  border-bottom: 3px solid #8DC63F !important;
+}
+.com-header-title, .com-header-person, .com-header-role, .com-header-meta,
+.com-header span, .com-header p, .com-header h1, .com-header h2, .com-header h3 {
+  color: #FFFFFF !important;
+}
+/* TABS - fondo negro oscuro, texto blanco claro */
+.com-tab-bar {
+  background: #1A1A1A !important;
+  border-bottom: 2px solid #333333 !important;
+}
+.com-tab {
+  color: #CCCCCC !important;
+  background: transparent !important;
+  font-weight: 500 !important;
+}
+.com-tab.active {
+  color: #FFFFFF !important;
+  border-bottom: 2px solid #8DC63F !important;
+  font-weight: 700 !important;
+}
+.com-tab:hover {
+  color: #FFFFFF !important;
+  background: #2A2A2A !important;
+}
+/* CONTENIDO - fondo blanco, texto negro nítido */
+.com-bloque {
+  background: #FFFFFF !important;
+  border: 1px solid #DDDDD8 !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important;
+}
+.com-bloque h3 { color: #111111 !important; font-weight: 700 !important; }
+.com-bloque h4 { color: #1A1A1A !important; font-weight: 600 !important; }
+.com-bloque p  { color: #333333 !important; }
+.com-bloque label, .com-bloque span:not(.semaforo-badge):not(.estado-pill):not(.prioridad-pill) {
+  color: #444444 !important;
+}
+.com-resumen-box {
+  background: #FFFFFF !important;
+  border: 1px solid #DDDDD8 !important;
+}
+.com-resumen-box h3 { color: #111111 !important; }
+.com-resumen-box p  { color: #222222 !important; }
+/* TABLAS - contraste alto */
+.data-table { border-collapse: collapse; }
+.data-table th {
+  background: #111111 !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+}
+.data-table td {
+  color: #111111 !important;
+  font-weight: 500 !important;
+  border-bottom: 1px solid #EAEAE5 !important;
+}
+.data-table tr:hover td {
+  background: #F5F5F2 !important;
+}
+/* TASK ROWS */
+.task-row {
+  background: #FFFFFF !important;
+  border-bottom: 1px solid #EAEAE5 !important;
+  color: #111111 !important;
+}
+.task-row:hover { background: #F5F5F2 !important; }
+.task-row td, .task-row span, .task-row div { color: #111111 !important; }
+/* KPI CARDS */
+.com-kpi-card {
+  background: #FFFFFF !important;
+  border: 1px solid #DDDDD8 !important;
+}
+.com-kpi-value { color: #111111 !important; font-weight: 700 !important; }
+.com-kpi-label { color: #555550 !important; font-weight: 500 !important; }
+/* SECTION TITLE */
+.com-section-title {
+  color: #111111 !important;
+  font-weight: 700 !important;
+  border-bottom: 2px solid #8DC63F !important;
+}
+/* POSITIVOS / NEGATIVOS */
+.com-pos-card {
+  background: #F2F9EA !important;
+  border-left: 4px solid #5CA836 !important;
+}
+.com-neg-card {
+  background: #FEF2F2 !important;
+  border-left: 4px solid #D14848 !important;
+}
+.com-pos-card h4 { color: #2A5A10 !important; font-weight: 700 !important; }
+.com-neg-card h4 { color: #7A1A1A !important; font-weight: 700 !important; }
+.com-pos-card li, .com-neg-card li { color: #111111 !important; }
+/* FORMULARIOS */
+.com-form-input, .com-textarea, .com-select, .json-paste-area {
+  background: #F5F5F2 !important;
+  border: 1px solid #CCCCCC !important;
+  color: #111111 !important;
+}
+.com-form-label { color: #1A1A1A !important; font-weight: 600 !important; }
+/* EXPORT BAR */
+.com-export-bar {
+  background: #FFFFFF !important;
+  border-top: 2px solid #DDDDD8 !important;
+}
+.com-export-label { color: #333333 !important; }
+.com-btn-gris {
+  background: #EBEBEB !important;
+  color: #111111 !important;
+  border: 1px solid #CCCCCC !important;
+  font-weight: 600 !important;
+}
+/* EMAIL */
+#kevin-email-body, #ariel-email-body, #sergio-email-body, #alejandro_com-email-body {
+  background: #FFFFFF !important;
+  color: #111111 !important;
+  border: 1px solid #DDDDD8 !important;
+}
+
+/* KPI TABLES - contraste forzado en todas las celdas */
+.com-app table td,
+.com-app table th,
+.com-app tbody td,
+.com-app thead th,
+.com-app tr td {
+  color: #111111 !important;
+  font-weight: 500 !important;
+}
+.com-app table thead th {
+  background: #111111 !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+}
+.com-app table tbody tr:nth-child(even) td {
+  background: #F8F8F5 !important;
+}
+.com-app table tbody tr:hover td {
+  background: #EEF5E8 !important;
+}
+.com-app table td strong {
+  color: #111111 !important;
+  font-weight: 700 !important;
+}
+/* Forzar colores de variacion a versiones oscuras legibles en fondo blanco */
+.com-app table td [style*="color:var(--red)"],
+.com-app table td[style*="color:var(--red)"] {
+  color: #B01E1E !important;
+}
+.com-app table td [style*="color:var(--green)"],
+.com-app table td[style*="color:var(--green)"] {
+  color: #2A6B10 !important;
+}
+/* Anular grises heredados del tema oscuro en tablas */
+.com-app table td,
+.com-app table td span,
+.com-app table td div,
+.com-app table td p {
+  color: #111111 !important;
+}
+
+
+/* ACCIONES - tema claro con buen contraste */
+.commitment {
+  background: #FFFFFF !important;
+  border: 1px solid #DDDDD8 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+}
+.commitment-text {
+  color: #111111 !important;
+  font-weight: 500 !important;
+}
+.commitment-meta, .commitment-date, .commitment-kpi {
+  color: #444444 !important;
+}
+.commitment-check {
+  border-color: #CCCCCC !important;
+  background: #FFFFFF !important;
+}
+.commitment.done {
+  background: #F2F9EA !important;
+  border-color: #8DC63F !important;
+}
+.commitment.done .commitment-text {
+  color: #2A5A10 !important;
+}
+.commitment.inherited {
+  border-left: 3px solid #E8B838 !important;
+  background: #FFFBF0 !important;
+}
+.commitment.inherited .commitment-text {
+  color: #5A4A00 !important;
+}
+.com-acciones-header {
+  color: #111111 !important;
+  font-weight: 700 !important;
+}
+.com-acciones-empty {
+  color: #555550 !important;
+}
+/* POSITIVOS / NEGATIVOS */
+.com-pos-neg-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 12px !important;
+  margin-bottom: 16px !important;
+}
+.com-pos-card {
+  background: #F2F9EA !important;
+  border: 1px solid #8DC63F !important;
+  border-left: 4px solid #5CA836 !important;
+  border-radius: 8px !important;
+  padding: 14px !important;
+}
+.com-pos-card h4 {
+  color: #2A5A10 !important;
+  font-weight: 700 !important;
+  margin-bottom: 8px !important;
+}
+.com-pos-card div, .com-pos-card li {
+  color: #1A3A08 !important;
+  font-weight: 500 !important;
+  margin-bottom: 4px !important;
+}
+.com-neg-card {
+  background: #FEF2F2 !important;
+  border: 1px solid #D14848 !important;
+  border-left: 4px solid #B01E1E !important;
+  border-radius: 8px !important;
+  padding: 14px !important;
+}
+.com-neg-card h4 {
+  color: #7A1A1A !important;
+  font-weight: 700 !important;
+  margin-bottom: 8px !important;
+}
+.com-neg-card div, .com-neg-card li {
+  color: #4A0A0A !important;
+  font-weight: 500 !important;
+  margin-bottom: 4px !important;
+}
+/* ===== FIN TEMA CLARO ===== */
 </style>
 </head>
 <body>
@@ -1241,9 +1489,9 @@
       <div class="com-semaforo-grid" id="kevin-semaforo-grid" style="display:none"></div>
 
       <!-- Positivos / Negativos -->
-      <div class="com-pos-neg-grid" id="kevin-pos-neg" style="display:none">
-        <div class="com-pos-card"><h4>&#9989; Positivos</h4><ul id="kevin-positivos-list"></ul></div>
-        <div class="com-neg-card"><h4>&#128680; Negativos</h4><ul id="kevin-negativos-list"></ul></div>
+      <div class="com-pos-neg-grid" id="kevin-pos-neg">
+        <div class="com-pos-card"><h4>&#9989; Positivos</h4><ul id="kevin-positivos"></ul></div>
+        <div class="com-neg-card"><h4>&#128680; Negativos</h4><ul id="kevin-negativos"></ul></div>
       </div>
 
       <!-- Nota verificacion -->
@@ -1588,9 +1836,9 @@
       <div class="com-semaforo-grid" id="ariel-semaforo-grid" style="display:none"></div>
 
       <!-- Positivos / Negativos -->
-      <div class="com-pos-neg-grid" id="ariel-pos-neg" style="display:none">
-        <div class="com-pos-card"><h4>&#9989; Positivos</h4><ul id="ariel-positivos-list"></ul></div>
-        <div class="com-neg-card"><h4>&#128680; Negativos</h4><ul id="ariel-negativos-list"></ul></div>
+      <div class="com-pos-neg-grid" id="ariel-pos-neg">
+        <div class="com-pos-card"><h4>&#9989; Positivos</h4><ul id="ariel-positivos"></ul></div>
+        <div class="com-neg-card"><h4>&#128680; Negativos</h4><ul id="ariel-negativos"></ul></div>
       </div>
 
       <!-- Nota verificacion -->
@@ -1935,9 +2183,9 @@
       <div class="com-semaforo-grid" id="sergio-semaforo-grid" style="display:none"></div>
 
       <!-- Positivos / Negativos -->
-      <div class="com-pos-neg-grid" id="sergio-pos-neg" style="display:none">
-        <div class="com-pos-card"><h4>&#9989; Positivos</h4><ul id="sergio-positivos-list"></ul></div>
-        <div class="com-neg-card"><h4>&#128680; Negativos</h4><ul id="sergio-negativos-list"></ul></div>
+      <div class="com-pos-neg-grid" id="sergio-pos-neg">
+        <div class="com-pos-card"><h4>&#9989; Positivos</h4><ul id="sergio-positivos"></ul></div>
+        <div class="com-neg-card"><h4>&#128680; Negativos</h4><ul id="sergio-negativos"></ul></div>
       </div>
 
       <!-- Nota verificacion -->
@@ -2282,9 +2530,9 @@
       <div class="com-semaforo-grid" id="alejandro_com-semaforo-grid" style="display:none"></div>
 
       <!-- Positivos / Negativos -->
-      <div class="com-pos-neg-grid" id="alejandro_com-pos-neg" style="display:none">
-        <div class="com-pos-card"><h4>&#9989; Positivos</h4><ul id="alejandro_com-positivos-list"></ul></div>
-        <div class="com-neg-card"><h4>&#128680; Negativos</h4><ul id="alejandro_com-negativos-list"></ul></div>
+      <div class="com-pos-neg-grid" id="alejandro_com-pos-neg">
+        <div class="com-pos-card"><h4>&#9989; Positivos</h4><ul id="alejandro_com-positivos"></ul></div>
+        <div class="com-neg-card"><h4>&#128680; Negativos</h4><ul id="alejandro_com-negativos"></ul></div>
       </div>
 
       <!-- Nota verificacion -->
@@ -4010,8 +4258,12 @@ function renderComercialPanel(person, data) {
   // Positivos / Negativos
   var posEl = el(person + '-positivos');
   var negEl = el(person + '-negativos');
-  if (posEl && data.positivos && data.positivos.length) posEl.innerHTML = data.positivos.map(function(p) { return '<div style="margin-bottom:4px;">&#10003; ' + p + '</div>'; }).join('');
-  if (negEl && data.negativos && data.negativos.length) negEl.innerHTML = data.negativos.map(function(n) { return '<div style="margin-bottom:4px;">&#9888; ' + n + '</div>'; }).join('');
+  var posData = (data.positivos && data.positivos.length) ? data.positivos : ((data.diagnostico && data.diagnostico.positivos) ? data.diagnostico.positivos : []);
+  var negData = (data.negativos && data.negativos.length) ? data.negativos : ((data.diagnostico && data.diagnostico.negativos) ? data.diagnostico.negativos : []);
+  if (posEl && posData.length) posEl.innerHTML = posData.map(function(p) { return '<div style="margin-bottom:4px;">&#10003; ' + p + '</div>'; }).join('');
+  if (negEl && negData.length) negEl.innerHTML = negData.map(function(n) { return '<div style="margin-bottom:4px;">&#9888; ' + n + '</div>'; }).join('');
+  var posNegGrid = el(person + '-pos-neg');
+  if (posNegGrid && (posData.length || negData.length)) posNegGrid.style.display = 'grid';
 
   // --- KPIs cabecera ---
   if (el(person + '-periodo')) el(person + '-periodo').textContent = data.periodo || '--';
@@ -4283,7 +4535,7 @@ window.selectPerson=function(person){
   _origSelectC(person);
   if(isComercial(person)){
     setTimeout(()=>{initComercialChart(person);},100);
-    if(state.fields._comercial_data){setTimeout(()=>{try{renderComercialPanel(person,JSON.parse(state.fields._comercial_data));}catch(e){}},150);}
+    var _st=window.comState&&window.comState[person];if(_st&&_st.fields&&_st.fields._comercial_data){setTimeout(()=>{try{renderComercialPanel(person,JSON.parse(_st.fields._comercial_data));}catch(e){}},150);}
   }
 };
 
@@ -5017,31 +5269,87 @@ function comGenerarEmailInterno(person, data) {
   var kr = data.kpis_resumen || data.kpis || {};
   var diag = data.diagnostico || {};
   var s = comState[person];
-  var acciones = (s && s.acciones) || data.acciones_confirmadas || data.tareas || [];
-  var proms = data.promociones_activas || {};
-  var bicis = (proms.bicicletas_foco || []).join(', ') || '-';
-  var camps = (proms.campanas_activas || []).join(', ') || '-';
-  var tareasStr = acciones.slice(0,5).map(function(a, i) {
-    return (i+1) + '. ' + (a.accion || a.titulo || '') + (a.objetivo ? ' (objetivo: ' + a.objetivo + ')' : '');
-  }).join('\n');
+
+  // Acciones: primero las del panel (confirmadas en la reunion), luego las del JSON
+  var accionesPanel = (s && s.acciones) ? s.acciones.filter(function(a){ return a.confirmada; }) : [];
+  var accionesJSON = data.acciones_confirmadas || data.tareas || [];
+  var acciones = accionesPanel.length > 0 ? accionesPanel : accionesJSON;
+
+  // Campanas y productos del nuevo formato
+  var campData = data.campanas_activas || {};
+  var productos = campData.productos || [];
+  var campanas = campData.campanas || [];
+
+  var responsable = (data.responsable || '').split(' ')[0]; // Solo nombre
   var tienda = data.tienda || '';
-  var responsable = data.responsable || '';
   var periodo = data.periodo || '';
   var pct = parseFloat(kr.cobros_vs_objetivo_pct) || 0;
-  var positivos = (data.positivos || []).slice(0,3).join(', ');
-  var negativos = (data.negativos || []).slice(0,2).join(', ');
-  var email = 'Buenos dias ' + responsable + ',\n\n' +
-    'Revisando ' + tienda + ' en ' + periodo + ', los datos muestran un cumplimiento del ' + pct.toFixed(1) + '% sobre objetivo. ' +
-    (positivos ? 'Destaca positivamente: ' + positivos + '.' : '') + '\n\n' +
-    (diag.causa_raiz_comercial ? 'El principal foco de mejora: ' + diag.causa_raiz_comercial + '\n\n' : '') +
-    'El ratio de conversion esta en ' + fmtPct(kr.ratio_conversion_pct) + ' y el ratio de llamadas en ' + fmtPct(kr.ratio_llamadas_pct) + '.\n\n' +
-    (proms.instruccion_comercial ? proms.instruccion_comercial + '\n\n' : '') +
-    'Esta semana el foco debe estar en:\n' + (tareasStr || '-') + '\n\n' +
-    'A nivel producto, hay que empujar activamente:\n' + bicis + '\n\n' +
-    'Aprovechar campanas activas: ' + camps + '\n\n' +
-    'No esperar a que el cliente pregunte. Hay que ofrecer productos, accesorios y financiacion en cada oportunidad.\n\n' +
-    'Hay negocio y capacidad para cerrar bien. Ahora toca transformar la actividad en metodo diario.\n\n' +
-    'Un saludo y gracias.';
+
+  // Positivos top 3
+  var posArr = data.positivos || (diag.positivos) || [];
+  var positivos = posArr.slice(0,3);
+
+  // Negativos top 2
+  var negArr = data.negativos || (diag.negativos) || [];
+  var negativos = negArr.slice(0,2);
+
+  // Acciones formateadas con prioridad y plazo
+  var accionesStr = '';
+  if (acciones.length > 0) {
+    accionesStr = acciones.map(function(a, i) {
+      var texto = a.accion || a.titulo || '';
+      var prior = a.prioridad ? a.prioridad.toUpperCase().replace('_', ' ') : '';
+      var plazo = a.plazo || '';
+      var obj = a.objetivo_siguiente ? ' -> objetivo: ' + a.objetivo_siguiente : '';
+      var estado = a.estado ? ' [' + a.estado.toUpperCase() + ']' : '';
+      return (i+1) + '. ' + texto + (prior ? ' (' + prior + ')' : '') + (plazo ? ' | ' + plazo : '') + obj + estado;
+    }).join('\n');
+  } else {
+    accionesStr = 'Pendiente de confirmar en la reunion.';
+  }
+
+  // Productos en lineas de 3
+  var productosStr = '';
+  for (var p = 0; p < productos.length; p += 3) {
+    productosStr += productos.slice(p, p+3).join(' · ') + '\n';
+  }
+  var campanasStr = campanas.map(function(c){ return '- ' + c; }).join('\n');
+
+  // Construir email con tono andaluz cercano
+  var saludo = responsable + ', que tal?';
+  var intro = 'Te mando esto para que tengamos por escrito lo que quedamos hoy.';
+
+  // Reconocimiento de lo positivo
+  var reconocimiento = '';
+  if (pct >= 100) {
+    reconocimiento = tienda + ' cierra el mes en ' + pct.toFixed(1) + '% del objetivo — buen trabajo. ';
+  } else {
+    reconocimiento = tienda + ' cierra en ' + pct.toFixed(1) + '% del objetivo — hay margen y lo vamos a aprovechar. ';
+  }
+  if (positivos.length > 0) {
+    reconocimiento += 'Lo que ha ido bien: ' + positivos.join(', ') + '.';
+  }
+
+  // Areas de mejora
+  var mejora = '';
+  if (negativos.length > 0) {
+    mejora = 'Lo que tenemos que mejorar: ' + negativos.join(', ') + '.';
+  }
+
+  var email =
+    saludo + '\n\n' +
+    intro + '\n\n' +
+    reconocimiento + '\n\n' +
+    (mejora ? mejora + '\n\n' : '') +
+    'ACCIONES ACORDADAS EN LA REUNION:\n' +
+    '-----------------------------------\n' +
+    accionesStr + '\n\n' +
+    'La proxima semana revisamos cada una de estas acciones. Preparate para contarme como va cada punto.\n\n' +
+    (productos.length > 0 ? 'PRODUCTOS A IMPULSAR ESTA SEMANA:\n' + productosStr + '\n' : '') +
+    (campanas.length > 0 ? 'CAMPANAS ACTIVAS:\n' + campanasStr + '\n\n' : '') +
+    'Julio pinta bien. A por ello.\n\n' +
+    'Un abrazo,\nJavi';
+
   el.value = email;
   if (s) s.fields['email-body'] = email;
 }
