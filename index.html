@@ -4,15 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panel Maestro Bikephilosophy</title>
-<style>body{margin:0;background:#111;color:#8DC63F;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column}#msg{font-size:18px;margin-bottom:16px}</style>
+<style>
+body { margin:0; background:#111111; color:#8DC63F; font-family:Manrope,sans-serif;
+display:flex; align-items:center; justify-content:center; height:100vh; flex-direction:column; gap:12px; }
+p { font-size:15px; margin:0; }
+</style>
 </head>
 <body>
-<div id="msg">Cargando Panel Maestro...</div>
+<p>Cargando Panel Maestro...</p>
 <script>
-fetch('panel.html')
-  .then(r => r.text())
-  .then(html => { document.open(); document.write(html); document.close(); })
-  .catch(e => { document.getElementById('msg').textContent = 'Error: ' + e.message; });
+fetch('panel.html').then(function(r){return r.text();}).then(function(h){document.open();document.write(h);document.close();}).catch(function(e){document.body.innerHTML='<p>Error: '+e.message+'</p>';});
 </script>
 </body>
 </html>
