@@ -61,8 +61,18 @@ function driveCargar(person) {
       .then(function(jsonData) {
         var input = document.getElementById(person + '-json-input');
         if (input) input.value = JSON.stringify(jsonData, null, 2);
+        // Guardar en comState directamente para que renderComercialPanel tenga los datos
+        if (window.comState && window.comState[person]) {
+          window.comState[person].fields._comercial_json = JSON.stringify(jsonData, null, 2);
+          window.comState[person].fields._comercial_data = JSON.stringify(jsonData);
+        }
         comCargarJSON(person);
-        setTimeout(function(){ renderCampanasEmail(person, jsonData); }, 300);
+        setTimeout(function(){
+          renderCampanasEmail(person, jsonData);
+          if (typeof renderComercialPanel === 'function') {
+            renderComercialPanel(person, jsonData);
+          }
+        }, 400);
         driveSetStatus(person, 'load', 'Cargado desde Drive', 'ok');
       })
       .catch(function(e) {
