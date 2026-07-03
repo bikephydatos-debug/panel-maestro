@@ -4353,7 +4353,7 @@ function renderComercialPanel(person, data) {
   renderAccionesComercial(person, data.acciones_confirmadas || data.tareas || []);
 
   // --- Foco bicis ---
-  var manBicis = state.fields._manual_bicis ? JSON.parse(state.fields._manual_bicis) : [];
+  var manBicis = (state && state.fields && state.fields._manual_bicis) ? JSON.parse(state.fields._manual_bicis) : [];
   var promAct = data.promociones_activas || {};
   var allBicis = (promAct.bicicletas_foco || []).concat(manBicis);
   var bList = el(person + '-bicis-list');
@@ -5348,6 +5348,7 @@ function comGenerarEmailInterno(person, data) {
     responsable + ', que tal?\n\n' +
     'Un placer como siempre. Te mando esto para que tengamos por escrito todo lo que hablamos hoy.\n\n' +
 
+    '== COMO HA IDO ' + periodo.toUpperCase() + ' ==\n\n' +
     introParrafo + '\n\n' +
 
     (posStr ? 'Lo que ha ido bien:\n' + posStr + '\n\n' : '') +
