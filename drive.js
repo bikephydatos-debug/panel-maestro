@@ -61,18 +61,7 @@ function driveCargar(person) {
       .then(function(jsonData) {
         var input = document.getElementById(person + '-json-input');
         if (input) input.value = JSON.stringify(jsonData, null, 2);
-        // Guardar en comState directamente para que renderComercialPanel tenga los datos
-        if (window.comState && window.comState[person]) {
-          window.comState[person].fields._comercial_json = JSON.stringify(jsonData, null, 2);
-          window.comState[person].fields._comercial_data = JSON.stringify(jsonData);
-        }
         comCargarJSON(person);
-        setTimeout(function(){
-          renderCampanasEmail(person, jsonData);
-          if (typeof renderComercialPanel === 'function') {
-            renderComercialPanel(person, jsonData);
-          }
-        }, 400);
         driveSetStatus(person, 'load', 'Cargado desde Drive', 'ok');
       })
       .catch(function(e) {
@@ -102,6 +91,10 @@ function driveGuardar(person) {
     diagnostico: data.diagnostico || {},
     positivos: data.positivos || [],
     negativos: data.negativos || [],
+    promociones_activas: data.promociones_activas || {},
+    discrepancias: data.discrepancias || [],
+    puntos_ciegos: data.puntos_ciegos || [],
+    fuentes: data.fuentes || {},
     acciones_confirmadas: (s.acciones || []).filter(function(a){return a.confirmada;}),
     acciones_pendientes: (s.acciones || []).filter(function(a){return !a.confirmada;}),
     seguimiento_acciones: data.seguimiento_acciones || [],
