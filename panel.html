@@ -4205,9 +4205,11 @@ function loadComercialJSON(person) {
   if (!raw) { statusEl.innerHTML='<span style="color:var(--red);">[!] El campo esta vacio.</span>'; return; }
   let data;
   try { data=JSON.parse(raw); } catch(e) { statusEl.innerHTML='<span style="color:var(--red);">[!] JSON invalido.</span>'; return; }
-  state.fields._comercial_json=raw;
-  state.fields._comercial_data=JSON.stringify(data);
-  saveState();
+  if (!window.comState[person]) window.comState[person] = comInitState(person);
+  const cs = window.comState[person];
+  cs.fields._comercial_json=raw;
+  cs.fields._comercial_data=JSON.stringify(data);
+  comSaveStateObj(person);
   renderComercialPanel(person, data);
   statusEl.innerHTML='<span style="color:var(--green);"> Informe cargado correctamente.</span>';
   setTimeout(()=>{
@@ -4220,7 +4222,9 @@ function loadComercialJSON(person) {
 }
 
 function renderComercialPanel(person, data) {
-  if (!data) { try { data = JSON.parse(state.fields._comercial_data || '{}'); } catch(e) { return; } }
+  if (!window.comState[person]) window.comState[person] = comInitState(person);
+  var cs = window.comState[person];
+  if (!data) { try { data = JSON.parse(cs.fields._comercial_data || '{}'); } catch(e) { return; } }
   var kr = data.kpis_resumen || data.kpis || {};
   var pct = parseFloat(kr.cobros_vs_objetivo_pct) || 0;
   var el = function(id) { return document.getElementById(id); };
@@ -4353,7 +4357,7 @@ function renderComercialPanel(person, data) {
   renderAccionesComercial(person, data.acciones_confirmadas || data.tareas || []);
 
   // --- Foco bicis ---
-  var manBicis = (state && state.fields && state.fields._manual_bicis) ? JSON.parse(state.fields._manual_bicis) : [];
+  var manBicis = (cs && cs.fields && cs.fields._manual_bicis) ? JSON.parse(cs.fields._manual_bicis) : [];
   var promAct = data.promociones_activas || {};
   var allBicis = (promAct.bicicletas_foco || []).concat(manBicis);
   var bList = el(person + '-bicis-list');
@@ -4362,7 +4366,7 @@ function renderComercialPanel(person, data) {
   var camps = promAct.campanas_activas || [];
   var cList = el(person + '-campanas-list');
   if (cList) cList.innerHTML = camps.length ? '<div style="padding:4px 0;">' + camps.map(function(c) { return '<span class="camp-pill">' + c + '</span>'; }).join('') + '</div>' : '<p style="color:var(--gray-400); font-style:italic; font-size:13px;">Sin campanas.</p>';
-  if (promAct.instruccion_comercial && !state.fields.instruccion_comercial) {
+  if (promAct.instruccion_comercial && !cs.fields.instruccion_comercial) {
     var instrEl = document.querySelector('#app-' + person + ' [data-field="instruccion_comercial"]');
     if (instrEl) instrEl.value = promAct.instruccion_comercial;
   }
@@ -4373,7 +4377,9 @@ function renderComercialPanel(person, data) {
 function renderAccionesComercial(person, acciones) {
   var container = document.getElementById(person + '-acciones-list');
   if (!container) return;
-  var stored = state.fields._tareas ? JSON.parse(state.fields._tareas) : acciones;
+  if (!window.comState[person]) window.comState[person] = comInitState(person);
+  var cs = window.comState[person];
+  var stored = cs.fields._tareas ? JSON.parse(cs.fields._tareas) : acciones;
   if (!stored || !stored.length) {
     container.innerHTML = '<div style="text-align:center; padding:30px; color:var(--gray-400); font-style:italic; font-size:14px;">Sin acciones confirmadas.</div>';
     return;
@@ -4406,30 +4412,36 @@ function renderAccionesComercial(person, acciones) {
       '<button onclick="delAccion(\'' + person + '\',' + i + ')" style="background:none; border:none; cursor:pointer; color:var(--gray-400); font-size:14px;">eliminar</button>' +
       '</div></div>';
   }).join('');
-  state.fields._tareas = JSON.stringify(stored);
-  saveState();
+  cs.fields._tareas = JSON.stringify(stored);
+  comSaveStateObj(person);
 }
 
 function delAccion(person, idx) {
-  const t=state.fields._tareas?JSON.parse(state.fields._tareas):[];
-  t.splice(idx,1); state.fields._tareas=JSON.stringify(t); saveState();
+  if (!window.comState[person]) window.comState[person] = comInitState(person);
+  var cs = window.comState[person];
+  const t=cs.fields._tareas?JSON.parse(cs.fields._tareas):[];
+  t.splice(idx,1); cs.fields._tareas=JSON.stringify(t); comSaveStateObj(person);
   renderAccionesComercial(person,t);
 }
 
 function addBiciManual(person) {
+  if (!window.comState[person]) window.comState[person] = comInitState(person);
+  var cs = window.comState[person];
   const inp=document.getElementById(person+'-bici-input'); const v=inp?.value?.trim(); if(!v) return;
-  const b=state.fields._manual_bicis?JSON.parse(state.fields._manual_bicis):[];
-  b.push(v); state.fields._manual_bicis=JSON.stringify(b); saveState(); inp.value='';
-  const data=state.fields._comercial_data?JSON.parse(state.fields._comercial_data):{};
+  const b=cs.fields._manual_bicis?JSON.parse(cs.fields._manual_bicis):[];
+  b.push(v); cs.fields._manual_bicis=JSON.stringify(b); comSaveStateObj(person); inp.value='';
+  const data=cs.fields._comercial_data?JSON.parse(cs.fields._comercial_data):{};
   const all=[...(data.promociones_activas?.bicicletas_foco||[]),...b];
   const list=document.getElementById(person+'-bicis-list');
   if(list) list.innerHTML='<div style="padding:4px 0;">'+all.map(x=>`<span class="bici-pill">${x}</span>`).join('')+'</div>';
 }
 
 function addAccionManual(person) {
+  if (!window.comState[person]) window.comState[person] = comInitState(person);
+  var cs = window.comState[person];
   const a=prompt('Accion:'); if(!a) return;
   const k=prompt('KPI:')||'--'; const p=prompt('Prioridad (Muy alta/Alta/Media):')||'Media';
-  const t=state.fields._tareas?JSON.parse(state.fields._tareas):[];
+  const t=cs.fields._tareas?JSON.parse(cs.fields._tareas):[];
   t.push({accion:a,kpi:k,prioridad:p,evidencia:'--'});
   renderAccionesComercial(person,t);
 }
@@ -4438,8 +4450,10 @@ function renderComercialChart(person) {
   const canvas=document.getElementById(person+'-chart');
   const emptyEl=document.getElementById(person+'-chart-empty');
   if(!canvas) return;
-  const hist=state.history?.reuniones_anteriores||[];
-  const curData=state.fields._comercial_data?JSON.parse(state.fields._comercial_data):null;
+  if (!window.comState[person]) window.comState[person] = comInitState(person);
+  const cs = window.comState[person];
+  const hist=cs.history?.reuniones_anteriores||[];
+  const curData=cs.fields._comercial_data?JSON.parse(cs.fields._comercial_data):null;
   const activeBtn=document.querySelector(`#${person}-chart-btns .chart-net-btn.active`);
   const kpiKey=activeBtn?.dataset.kpi||'conversion';
   const color=activeBtn?.dataset.color||'#D14848';
@@ -4477,15 +4491,17 @@ function initComercialChart(person) {
 }
 
 function generateEmail(person) {
+  if (!window.comState[person]) window.comState[person] = comInitState(person);
+  var cs = window.comState[person];
   var data = {};
-  try { data = JSON.parse(state.fields._comercial_data || '{}'); } catch(e) {}
+  try { data = JSON.parse(cs.fields._comercial_data || '{}'); } catch(e) {}
   var kr = data.kpis_resumen || data.kpis || {};
-  var tareas = state.fields._tareas ? JSON.parse(state.fields._tareas) : (data.tareas || []);
+  var tareas = cs.fields._tareas ? JSON.parse(cs.fields._tareas) : (data.tareas || []);
   var bicis = (data.promociones_activas && data.promociones_activas.bicicletas_foco || []).concat(
-    state.fields._manual_bicis ? JSON.parse(state.fields._manual_bicis) : []
+    cs.fields._manual_bicis ? JSON.parse(cs.fields._manual_bicis) : []
   );
   var camps = data.promociones_activas && data.promociones_activas.campanas_activas || [];
-  var instruccion = state.fields.instruccion_comercial || (data.promociones_activas && data.promociones_activas.instruccion_comercial) || '';
+  var instruccion = cs.fields.instruccion_comercial || (data.promociones_activas && data.promociones_activas.instruccion_comercial) || '';
   var positivos = data.positivos || [];
   var negativos = data.negativos || [];
   var emailEl = document.getElementById(person + '-email-preview');
