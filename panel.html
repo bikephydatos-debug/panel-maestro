@@ -4945,8 +4945,8 @@ function comRenderFromJSON(person, data) {
     pn.style.display = 'grid';
     var pos = data.positivos || [];
     var neg = data.negativos || [];
-    var pl = document.getElementById(person + '-positivos-list');
-    var nl = document.getElementById(person + '-negativos-list');
+    var pl = document.getElementById(person + '-positivos');
+    var nl = document.getElementById(person + '-negativos');
     if (pl) pl.innerHTML = pos.map(function(p) { return '<li>' + p + '</li>'; }).join('');
     if (nl) nl.innerHTML = neg.map(function(n) { return '<li>' + n + '</li>'; }).join('');
   }
@@ -4974,7 +4974,7 @@ function comRenderFromJSON(person, data) {
     pc2.style.display = 'block';
     var proy = data.proyeccion || {};
     var cobrosEl = document.getElementById(person + '-cobros-eur');
-    if (cobrosEl) cobrosEl.textContent = fmtEur(proy.venta_actual_eur || kr.cobros_eur);
+    if (cobrosEl) cobrosEl.textContent = fmtEur(kr.cobros_eur);
     var barEl = document.getElementById(person + '-proy-bar');
     if (barEl) barEl.style.width = Math.min(pct, 100) + '%';
     var pctEl = document.getElementById(person + '-proy-pct');
@@ -5292,9 +5292,9 @@ function comGenerarEmailInterno(person, data) {
   var acciones = accionesPanel.length > 0 ? accionesPanel : accionesJSON;
 
   // Campanas y productos
-  var campData = data.campanas_activas || {};
-  var productos = campData.productos || [];
-  var campanas = campData.campanas || [];
+  var campData = data.promociones_activas || {};
+  var productos = campData.bicicletas_foco || [];
+  var campanas = campData.campanas_activas || [];
 
   var responsable = (data.responsable || '').split(' ')[0];
   var tienda = data.tienda || '';
