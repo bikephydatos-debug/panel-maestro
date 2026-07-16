@@ -3286,6 +3286,23 @@
         <div class="input-block"><label class="input-label">Acción de Javi antes de la próxima</label><textarea data-field="accion_javi"></textarea></div>
         <div class="input-block"><label class="input-label">Notas finales</label><textarea data-field="notas_finales"></textarea></div>
       </div>
+
+      <div class="card">
+        <div class="card-title">📧 Email de reunión para Hernán</div>
+        <div class="card-body" style="margin-bottom:14px;">
+          <p style="font-size:13px; color:var(--gray-600);">Genera un email con la información operativa de la reunión (compromisos, eventos y publicaciones, colaboraciones, GMB, reseñas, equipamiento...). No incluye el estado inicial ni notas internas para Javi.</p>
+        </div>
+        <button class="btn btn-primary" onclick="generarEmailPersona()" style="margin-bottom:12px;">Generar email</button>
+        <div class="input-block">
+          <label class="input-label">Asunto</label>
+          <input type="text" id="hernan-email-asunto" readonly style="font-weight:700;"/>
+        </div>
+        <div class="input-block">
+          <label class="input-label">Cuerpo</label>
+          <textarea id="hernan-email-cuerpo" rows="18" readonly></textarea>
+        </div>
+        <button class="btn" onclick="copiarEmailPersona()">Copiar email</button>
+      </div>
     </section>
   </main>
 </div>
@@ -4119,6 +4136,99 @@ function addEvento() {
     ]
   });
   renderEventos(); saveState();
+}
+
+// === EMAIL DE REUNION PARA LA PERSONA ===
+// Campos que NUNCA se incluyen en el email (uso interno de Javi, o sobre el estado inicial de la persona)
+const EMAIL_CAMPOS_EXCLUIDOS = {
+  hernan: ['notas_apertura', 'accion_javi', 'cierre_lectura', 'notas_finales']
+};
+// Etiquetas legibles para los campos (si no aparece aqui, se usa el nombre del campo formateado)
+const EMAIL_ETIQUETAS_CAMPO = {
+  hernan: {
+    pub_top: 'Publicación que mejor funcionó este mes',
+    pub_aprendizajes: 'Lo que no funcionó / aprendizajes',
+    pub_plan_proximo: 'Plan de contenido próximo mes',
+    otras_redes: 'Lectura general otras redes',
+    rrss_funciona: 'Qué está funcionando',
+    rrss_no_funciona: 'Qué no funciona',
+    colab_furio: 'Juanma Furió (serie 7 vídeos)',
+    colab_otras: 'Otras colaboraciones activas',
+    colab_pipeline: 'Colaboraciones potenciales / pipeline',
+    ride_cobertura: 'Ridephilosophy del mes (cobertura)',
+    eventos_proximos: 'Eventos próximos a cubrir',
+    producciones: 'Producciones grandes en marcha',
+    gmb_marbella: 'Estado GMB Marbella',
+    gmb_malaga: 'Estado GMB Málaga',
+    gmb_velez: 'Estado GMB Vélez',
+    resenas: 'Reseñas nuevas / respuestas pendientes',
+    sem_campanas: 'Campañas activas y rendimiento',
+    sem_raquel: 'Coordinación con Raquel',
+    sem_traspaso: 'Estado del traspaso a Alejandro',
+    equip_actual: 'Equipamiento actual',
+    equip_software: 'Software / IA en uso',
+    equip_necesidades: 'Necesidades / propuestas de inversión',
+    kpis_lectura: 'Lectura del mes (KPIs RRSS)'
+  }
+};
+
+function formatearNombreCampo(key) {
+  return key.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+}
+
+function generarEmailPersona() {
+  const person = currentPerson;
+  const excluidos = EMAIL_CAMPOS_EXCLUIDOS[person] || [];
+  const etiquetas = EMAIL_ETIQUETAS_CAMPO[person] || {};
+
+  const nombrePersona = person.charAt(0).toUpperCase() + person.slice(1).replace(/_/g, ' ');
+  let cuerpo = `Hola ${nombrePersona},\n\nAquí tienes el resumen operativo de la reunión de hoy (${state.meta.fecha}):\n\n`;
+
+  if (state.commitments && state.commitments.length) {
+    cuerpo += `COMPROMISOS\n${'-'.repeat(40)}\n`;
+    state.commitments.forEach(c => {
+      cuerpo += `• ${c.action}\n`;
+      cuerpo += `   Responsable: ${c.responsible || '--'} | Plazo: ${c.deadline || '--'}\n\n`;
+    });
+  }
+
+  if (state.eventos && state.eventos.length) {
+    cuerpo += `EVENTOS Y PUBLICACIONES\n${'-'.repeat(40)}\n`;
+    state.eventos.forEach(ev => {
+      cuerpo += `* ${ev.nombre}${ev.fecha ? ' (' + ev.fecha + ')' : ''}\n`;
+      (ev.publicaciones || []).forEach(p => {
+        const marca = p.estado === 'hecho' ? '[HECHO]' : p.estado === 'no_hecho' ? '[NO HECHO]' : '[PENDIENTE]';
+        cuerpo += `   ${marca} ${p.descripcion}${p.responsable ? ' (' + p.responsable + ')' : ''}\n`;
+        if (p.necesitamos) cuerpo += `      Necesitamos: ${p.necesitamos}\n`;
+        if (p.etiquetas) cuerpo += `      Etiquetar: ${p.etiquetas}\n`;
+      });
+      cuerpo += '\n';
+    });
+  }
+
+  const camposConContenido = Object.keys(state.fields || {}).filter(k =>
+    state.fields[k] && state.fields[k].trim() && !excluidos.includes(k)
+  );
+  if (camposConContenido.length) {
+    cuerpo += `OTROS PUNTOS\n${'-'.repeat(40)}\n`;
+    camposConContenido.forEach(k => {
+      const label = etiquetas[k] || formatearNombreCampo(k);
+      cuerpo += `${label}:\n${state.fields[k].trim()}\n\n`;
+    });
+  }
+
+  cuerpo += `Un saludo,\nJavi`;
+
+  document.getElementById(person + '-email-asunto').value = `Reunión Bikephilosophy - ${state.meta.fecha}`;
+  document.getElementById(person + '-email-cuerpo').value = cuerpo;
+}
+
+function copiarEmailPersona() {
+  const person = currentPerson;
+  const asunto = document.getElementById(person + '-email-asunto').value;
+  const cuerpo = document.getElementById(person + '-email-cuerpo').value;
+  if (!cuerpo) { alert('Primero genera el email.'); return; }
+  copyToClipboard(`Asunto: ${asunto}\n\n${cuerpo}`);
 }
 
 function renderHistory() {
