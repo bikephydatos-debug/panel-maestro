@@ -116,6 +116,7 @@ function driveGuardar(person) {
       proxima_reunion: s.fields['proxima-reunion'] || '',
       accion_javi: s.fields['accion-javi'] || ''
     },
+    email_editado: s.fields['email-body'] || '',
     exportado: new Date().toISOString()
   };
   var fileName = (json.tienda + '_' + (json.periodo || new Date().toISOString().split('T')[0])).replace(/\s/g,'_') + '.json';
