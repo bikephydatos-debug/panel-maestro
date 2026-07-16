@@ -5489,8 +5489,15 @@ function comRenderFromJSON(person, data) {
   comRenderPromos(person);
   comRenderPersonasCalidad(person);
 
-  // Pre-fill email
-  comGenerarEmailInterno(person, data);
+  // Pre-fill email: si el JSON trae un email ya editado por Javi, restaurarlo tal cual.
+  // Si no, generar uno nuevo a partir de los datos.
+  if (data.email_editado && data.email_editado.trim()) {
+    var elEmail = document.getElementById(person + '-email-body');
+    if (elEmail) elEmail.value = data.email_editado;
+    if (comState[person]) comState[person].fields['email-body'] = data.email_editado;
+  } else {
+    comGenerarEmailInterno(person, data);
+  }
 }
 
 // ---- ACCIONES ----
