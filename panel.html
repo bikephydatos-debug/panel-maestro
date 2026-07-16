@@ -3215,6 +3215,15 @@
         <div class="input-block"><label class="input-label">Eventos próximos a cubrir</label><textarea data-field="eventos_proximos" placeholder="Test Orbea (3-4 oct), carreras, etc."></textarea></div>
         <div class="input-block"><label class="input-label">Producciones grandes en marcha</label><textarea data-field="producciones"></textarea></div>
       </div>
+
+      <div class="card">
+        <div class="card-title">🎬 Planificación de eventos y publicaciones</div>
+        <div class="card-body" style="margin-bottom:14px;">
+          <p style="font-size:13px; color:var(--gray-600);">Por cada evento, deja fijado qué publicaciones se van a hacer, qué necesitamos para cada una, y a quién podemos etiquetar para llegar a más gente. En la siguiente reunión se hace seguimiento: hecho / no hecho.</p>
+        </div>
+        <div id="hernan-eventos-list"></div>
+        <button class="btn btn-primary" onclick="addEvento()" style="margin-top:8px;">+ Añadir evento</button>
+      </div>
     </section>
 
     <section class="section" id="hernan-gmb">
@@ -3765,6 +3774,7 @@ function initState(person) {
     fields: {},
     pills: {},
     commitments: JSON.parse(JSON.stringify(PERSON_CONFIG[person].defaults)),
+    eventos: [],
     history: { reuniones_anteriores: [], compromisos_cumplidos: [] }
   };
 }
@@ -3784,7 +3794,9 @@ function saveState() {
 function loadState(person) {
   try {
     const raw = localStorage.getItem(storageKey(person));
-    return raw ? JSON.parse(raw) : initState(person);
+    const s = raw ? JSON.parse(raw) : initState(person);
+    if (!s.eventos) s.eventos = [];
+    return s;
   } catch (e) { return initState(person); }
 }
 
@@ -3863,6 +3875,7 @@ function selectPerson(person) {
     if (dateEl) dateEl.textContent = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
     bindCurrentApp();
     renderCommitments();
+    renderEventos();
     renderHistory();
   }
 }
@@ -3979,6 +3992,123 @@ function addCommitment(person) {
   renderCommitments(); saveState();
 }
 
+// === EVENTOS Y PUBLICACIONES (Bloque 05 - Hernan) ===
+function estadoPubInfo(estado) {
+  if (estado === 'hecho') return { label: 'HECHO', color: 'var(--green)' };
+  if (estado === 'no_hecho') return { label: 'NO HECHO', color: '#e05252' };
+  return { label: 'PENDIENTE', color: 'var(--yellow)' };
+}
+function siguienteEstadoPub(estado) {
+  if (estado === 'pendiente' || !estado) return 'hecho';
+  if (estado === 'hecho') return 'no_hecho';
+  return 'pendiente';
+}
+
+function renderEventos() {
+  const container = document.getElementById(currentPerson + '-eventos-list');
+  if (!container) return;
+  if (!state.eventos) state.eventos = [];
+  container.innerHTML = '';
+
+  state.eventos.forEach((ev, eIdx) => {
+    const card = document.createElement('div');
+    card.style.cssText = 'border:1.5px solid var(--gray-200); border-radius:10px; padding:16px; margin-bottom:16px; background:var(--gray-50);';
+
+    const pubsHtml = (ev.publicaciones || []).map((p, pIdx) => {
+      const info = estadoPubInfo(p.estado);
+      return `
+        <div style="border-top:1px solid var(--gray-200); padding:12px 0;" data-pub-row="${eIdx}-${pIdx}">
+          <div style="display:flex; justify-content:space-between; gap:8px; align-items:flex-start;">
+            <div style="flex:1;">
+              <div class="input-label" style="margin-bottom:4px;">Publicación</div>
+              <div contenteditable="true" data-eidx="${eIdx}" data-pidx="${pIdx}" data-pfield="descripcion" style="font-size:14px; font-weight:600; padding:4px 0; border-bottom:1px dashed var(--gray-200);">${escapeHtml(p.descripcion || '')}</div>
+            </div>
+            <button class="estado-pub-badge" data-eidx="${eIdx}" data-pidx="${pIdx}" style="cursor:pointer; border:none; border-radius:100px; padding:5px 12px; font-size:11px; font-weight:800; letter-spacing:0.05em; color:white; background:${info.color}; white-space:nowrap;">${info.label}</button>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px;">
+            <div>
+              <div class="input-label" style="margin-bottom:4px;">Qué necesitamos</div>
+              <div contenteditable="true" data-eidx="${eIdx}" data-pidx="${pIdx}" data-pfield="necesitamos" style="font-size:13px; padding:4px 0; border-bottom:1px dashed var(--gray-200); min-height:20px;">${escapeHtml(p.necesitamos || '')}</div>
+            </div>
+            <div>
+              <div class="input-label" style="margin-bottom:4px;">Personas/marcas a etiquetar</div>
+              <div contenteditable="true" data-eidx="${eIdx}" data-pidx="${pIdx}" data-pfield="etiquetas" style="font-size:13px; padding:4px 0; border-bottom:1px dashed var(--gray-200); min-height:20px;">${escapeHtml(p.etiquetas || '')}</div>
+            </div>
+          </div>
+          <button class="btn" data-del-pub="${eIdx}-${pIdx}" style="font-size:10px; padding:3px 8px; margin-top:8px; background:transparent; color:var(--gray-400); border:1px solid var(--gray-200);">eliminar publicación</button>
+        </div>
+      `;
+    }).join('');
+
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start; margin-bottom:8px;">
+        <div style="flex:1;">
+          <div class="input-label" style="margin-bottom:4px;">Evento</div>
+          <div contenteditable="true" data-eidx="${eIdx}" data-efield="nombre" style="font-size:16px; font-weight:700; padding:4px 0; border-bottom:1px dashed var(--gray-200);">${escapeHtml(ev.nombre || 'Nuevo evento')}</div>
+        </div>
+        <div style="width:160px;">
+          <div class="input-label" style="margin-bottom:4px;">Fecha</div>
+          <div contenteditable="true" data-eidx="${eIdx}" data-efield="fecha" style="font-size:13px; padding:4px 0; border-bottom:1px dashed var(--gray-200);">${escapeHtml(ev.fecha || '')}</div>
+        </div>
+        <button class="btn" data-del-evento="${eIdx}" style="font-size:11px; padding:5px 10px; background:transparent; color:var(--gray-400); border:1px solid var(--gray-200); margin-top:18px;">eliminar evento</button>
+      </div>
+      ${pubsHtml}
+      <button class="btn" data-add-pub="${eIdx}" style="font-size:12px; padding:6px 12px; margin-top:10px;">+ Añadir publicación</button>
+    `;
+    container.appendChild(card);
+  });
+
+  container.querySelectorAll('[contenteditable="true"][data-efield]').forEach(el => {
+    el.onblur = () => { state.eventos[el.dataset.eidx][el.dataset.efield] = el.textContent.trim(); saveState(); };
+  });
+  container.querySelectorAll('[contenteditable="true"][data-pfield]').forEach(el => {
+    el.onblur = () => {
+      state.eventos[el.dataset.eidx].publicaciones[el.dataset.pidx][el.dataset.pfield] = el.textContent.trim();
+      saveState();
+    };
+  });
+  container.querySelectorAll('.estado-pub-badge').forEach(el => {
+    el.onclick = () => {
+      const pub = state.eventos[el.dataset.eidx].publicaciones[el.dataset.pidx];
+      pub.estado = siguienteEstadoPub(pub.estado);
+      renderEventos(); saveState();
+    };
+  });
+  container.querySelectorAll('[data-add-pub]').forEach(el => {
+    el.onclick = () => {
+      const eIdx = el.dataset.addPub;
+      if (!state.eventos[eIdx].publicaciones) state.eventos[eIdx].publicaciones = [];
+      state.eventos[eIdx].publicaciones.push({ descripcion: 'Nueva publicación', necesitamos: '', etiquetas: '', estado: 'pendiente' });
+      renderEventos(); saveState();
+    };
+  });
+  container.querySelectorAll('[data-del-pub]').forEach(el => {
+    el.onclick = () => {
+      if (!confirm('¿Eliminar esta publicación?')) return;
+      const [eIdx, pIdx] = el.dataset.delPub.split('-');
+      state.eventos[eIdx].publicaciones.splice(pIdx, 1);
+      renderEventos(); saveState();
+    };
+  });
+  container.querySelectorAll('[data-del-evento]').forEach(el => {
+    el.onclick = () => {
+      if (!confirm('¿Eliminar este evento y todas sus publicaciones?')) return;
+      state.eventos.splice(el.dataset.delEvento, 1);
+      renderEventos(); saveState();
+    };
+  });
+}
+
+function addEvento() {
+  if (!state.eventos) state.eventos = [];
+  state.eventos.push({
+    nombre: 'Nuevo evento',
+    fecha: '',
+    publicaciones: [{ descripcion: 'Nueva publicación', necesitamos: '', etiquetas: '', estado: 'pendiente' }]
+  });
+  renderEventos(); saveState();
+}
+
 function renderHistory() {
   const reunionesEl = document.getElementById(currentPerson + '-historico-reuniones');
   const cumplidosEl = document.getElementById(currentPerson + '-historico-cumplidos');
@@ -4036,6 +4166,7 @@ function exportJSON() {
     fields: state.fields,
     pills: state.pills,
     compromisos: state.commitments,
+    eventos: state.eventos || [],
     history: state.history,
     confidencial: true
   };
@@ -4065,6 +4196,20 @@ function exportReport() {
     r += `      Responsable: ${c.responsible} - Plazo: ${c.deadline}\n`;
   });
   r += '\n';
+
+  if (state.eventos && state.eventos.length > 0) {
+    r += `EVENTOS Y PUBLICACIONES:\n`;
+    state.eventos.forEach(ev => {
+      r += `  * ${ev.nombre}${ev.fecha ? ' (' + ev.fecha + ')' : ''}\n`;
+      (ev.publicaciones || []).forEach(p => {
+        const marca = p.estado === 'hecho' ? 'HECHO' : p.estado === 'no_hecho' ? 'NO HECHO' : 'PENDIENTE';
+        r += `      [${marca}] ${p.descripcion}\n`;
+        if (p.necesitamos) r += `          Necesitamos: ${p.necesitamos}\n`;
+        if (p.etiquetas) r += `          Etiquetar: ${p.etiquetas}\n`;
+      });
+    });
+    r += '\n';
+  }
 
   if (state.history.reuniones_anteriores.length > 0) {
     r += `HISTORICO (${state.history.reuniones_anteriores.length} reuniones anteriores):\n`;
@@ -4111,6 +4256,9 @@ function procesarJSONCargado(data) {
     }));
 
     state.commitments = [...heredados, ...JSON.parse(JSON.stringify(PERSON_CONFIG[currentPerson].defaults)).filter(d => !heredados.some(h => h.action === d.action))];
+
+    // Los eventos se mantienen tal cual venian en el JSON (seguimiento continuo entre reuniones)
+    state.eventos = data.eventos || [];
 
     state.history.reuniones_anteriores.push({
       fecha: fechaAnterior,
