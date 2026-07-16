@@ -4025,7 +4025,11 @@ function renderEventos() {
             </div>
             <button class="estado-pub-badge" data-eidx="${eIdx}" data-pidx="${pIdx}" style="cursor:pointer; border:none; border-radius:100px; padding:5px 12px; font-size:11px; font-weight:800; letter-spacing:0.05em; color:white; background:${info.color}; white-space:nowrap;">${info.label}</button>
           </div>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px;">
+          <div style="display:grid; grid-template-columns:0.7fr 1fr 1fr; gap:10px; margin-top:8px;">
+            <div>
+              <div class="input-label" style="margin-bottom:4px;">Responsable</div>
+              <div contenteditable="true" data-eidx="${eIdx}" data-pidx="${pIdx}" data-pfield="responsable" style="font-size:13px; font-weight:700; padding:4px 0; border-bottom:1px dashed var(--gray-200); min-height:20px;">${escapeHtml(p.responsable || '')}</div>
+            </div>
             <div>
               <div class="input-label" style="margin-bottom:4px;">Qué necesitamos</div>
               <div contenteditable="true" data-eidx="${eIdx}" data-pidx="${pIdx}" data-pfield="necesitamos" style="font-size:13px; padding:4px 0; border-bottom:1px dashed var(--gray-200); min-height:20px;">${escapeHtml(p.necesitamos || '')}</div>
@@ -4078,7 +4082,7 @@ function renderEventos() {
     el.onclick = () => {
       const eIdx = el.dataset.addPub;
       if (!state.eventos[eIdx].publicaciones) state.eventos[eIdx].publicaciones = [];
-      state.eventos[eIdx].publicaciones.push({ descripcion: 'Nueva publicación', necesitamos: '', etiquetas: '', estado: 'pendiente' });
+      state.eventos[eIdx].publicaciones.push({ descripcion: 'Nueva publicación', responsable: '', necesitamos: '', etiquetas: '', estado: 'pendiente' });
       renderEventos(); saveState();
     };
   });
@@ -4104,7 +4108,15 @@ function addEvento() {
   state.eventos.push({
     nombre: 'Nuevo evento',
     fecha: '',
-    publicaciones: [{ descripcion: 'Nueva publicación', necesitamos: '', etiquetas: '', estado: 'pendiente' }]
+    publicaciones: [
+      { descripcion: 'Crear evento en Strava', responsable: 'Moi', necesitamos: 'Fecha, lugar y detalles del evento', etiquetas: '', estado: 'pendiente' },
+      { descripcion: 'Instagram: publicación de lanzamiento (similar a la de Strava)', responsable: 'Hernan', necesitamos: '', etiquetas: '', estado: 'pendiente' },
+      { descripcion: 'Colaboración con Juanma, Dani o compañero de tienda para captar apuntados', responsable: 'Hernan', necesitamos: '', etiquetas: 'Juanma Furio, Dani', estado: 'pendiente' },
+      { descripcion: 'Recordatorio en Strava una semana antes del evento', responsable: 'Moi', necesitamos: '', etiquetas: '', estado: 'pendiente' },
+      { descripcion: 'Recordatorio en Instagram una semana antes (contenido nuevo, no repetir el de lanzamiento)', responsable: 'Hernan', necesitamos: '', etiquetas: '', estado: 'pendiente' },
+      { descripcion: 'Carrusel resumen del evento (minimo 2 carruseles)', responsable: 'Hernan', necesitamos: 'Fotos/videos del evento', etiquetas: 'Colaboradores del evento', estado: 'pendiente' },
+      { descripcion: 'Video resumen del evento (si da tiempo/material)', responsable: 'Hernan', necesitamos: 'Material de video del evento', etiquetas: '', estado: 'pendiente' }
+    ]
   });
   renderEventos(); saveState();
 }
@@ -4203,7 +4215,7 @@ function exportReport() {
       r += `  * ${ev.nombre}${ev.fecha ? ' (' + ev.fecha + ')' : ''}\n`;
       (ev.publicaciones || []).forEach(p => {
         const marca = p.estado === 'hecho' ? 'HECHO' : p.estado === 'no_hecho' ? 'NO HECHO' : 'PENDIENTE';
-        r += `      [${marca}] ${p.descripcion}\n`;
+        r += `      [${marca}] ${p.descripcion}${p.responsable ? ' (' + p.responsable + ')' : ''}\n`;
         if (p.necesitamos) r += `          Necesitamos: ${p.necesitamos}\n`;
         if (p.etiquetas) r += `          Etiquetar: ${p.etiquetas}\n`;
       });
