@@ -7,10 +7,19 @@ var DRIVE_FOLDER_IDS = {
   kevin:        '19Ld6YRETlW4xQAjZ9iVDMPUDC5XKJjsF',
   ariel:        '14GZ-KP5r1Onz7zZ99NgPiZ2yHz9FM-R-',
   sergio:       '1ylXRsA4sWSZ5dPeTEofzN41LcU7teF9f',
-  alejandro_com:'1fpqMVHXg_KHwThVKIG9ospOpEdNr0-tS'
+  alejandro_com:'1fpqMVHXg_KHwThVKIG9ospOpEdNr0-tS',
+  hernan:       '17uBffq4qXjW7gxwKBBAVhNQ_klVXctLW',
+  moi:          '1guzNSwIXwDe_TP7ZQsprOm0QhnqvFIb9',
+  jesus_roda:   '1nqYTi10ENOKsNCENqWJ5xMCXZDxWtXym',
+  alejandro:    '1tIR0VpU31_fliL0mZ4k1-Q2Jb5aiIHyi'
 };
 var DRIVE_PERSON_NAMES = {
-  kevin: 'Marbella', ariel: 'Malaga', sergio: 'Velez-Malaga', alejandro_com: 'Web'
+  kevin: 'Marbella', ariel: 'Malaga', sergio: 'Velez-Malaga', alejandro_com: 'Web',
+  hernan: 'Hernan', moi: 'Moi', jesus_roda: 'Jesus Roda', alejandro: 'Alejandro'
+};
+// Personas del sistema de gestion (no comercial) que usan el modelo state/currentPerson
+var DRIVE_PERSONA_TIPO = {
+  hernan: 'persona', moi: 'persona', jesus_roda: 'persona', alejandro: 'persona'
 };
 var driveToken = null;
 
@@ -162,6 +171,120 @@ function driveGuardar(person) {
       .catch(function(e) {
         driveSetStatus(person, 'save', 'Error al guardar', 'err');
         console.error('Drive guardar error:', e);
+      });
+  });
+}
+
+
+function personaDriveSetStatus(msg, cls) {
+  var el = document.getElementById('persona-drive-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'drive-status' + (cls ? ' ' + cls : '');
+}
+
+// =============================================
+// DRIVE PARA GESTION DE PERSONAS (Hernan, Moi, Jesus Roda, Alejandro)
+// Usa el mismo token OAuth (driveGetToken) pero opera sobre el modelo
+// state / currentPerson en vez de comState, y reutiliza procesarJSONCargado()
+// definida en panel.html para no duplicar la logica de loadJSON().
+// =============================================
+
+function personaDriveGuardar(person) {
+  if (typeof state === 'undefined' || !state.meta) {
+    personaDriveSetStatus('Sin datos para guardar', 'err'); return;
+  }
+  var data = {
+    persona: person,
+    rol: state.meta.rol,
+    fecha: state.meta.fecha,
+    fecha_exportacion: new Date().toISOString(),
+    fields: state.fields,
+    pills: state.pills,
+    compromisos: state.commitments,
+    history: state.history,
+    confidencial: true
+  };
+  var fileName = ('reunion_' + person + '_' + state.meta.fecha).replace(/\s/g, '_') + '.json';
+  var jsonStr = JSON.stringify(data, null, 2);
+  personaDriveSetStatus('Guardando...', '');
+  driveGetToken(function(token) {
+    var folderId = DRIVE_FOLDER_IDS[person];
+    var searchUrl = 'https://www.googleapis.com/drive/v3/files?q=' +
+      encodeURIComponent("'" + folderId + "' in parents and name='" + fileName + "' and trashed=false") +
+      '&fields=files(id)';
+    fetch(searchUrl, { headers: { Authorization: 'Bearer ' + token } })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        var existingId = res.files && res.files.length ? res.files[0].id : null;
+        var url, method;
+        if (existingId) {
+          url = 'https://www.googleapis.com/upload/drive/v3/files/' + existingId + '?uploadType=media';
+          return fetch(url, {
+            method: 'PATCH',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: jsonStr
+          });
+        } else {
+          url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+          var meta = JSON.stringify({ name: fileName, parents: [folderId] });
+          var boundary = 'bikephy_boundary';
+          var body = '--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + meta +
+            '\r\n--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + jsonStr + '\r\n--' + boundary + '--';
+          return fetch(url, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'multipart/related; boundary=' + boundary },
+            body: body
+          });
+        }
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(result) {
+        if (result.id) {
+          personaDriveSetStatus('Guardado en Drive', 'ok');
+        } else {
+          personaDriveSetStatus('Error al guardar', 'err');
+          console.error('Drive guardar error (persona):', result);
+        }
+      })
+      .catch(function(e) {
+        personaDriveSetStatus('Error al guardar', 'err');
+        console.error('Drive guardar error (persona):', e);
+      });
+  });
+}
+
+function personaDriveCargar(person) {
+  personaDriveSetStatus('Conectando...', '');
+  driveGetToken(function(token) {
+    var folderId = DRIVE_FOLDER_IDS[person];
+    var url = 'https://www.googleapis.com/drive/v3/files?q=' +
+      encodeURIComponent("'" + folderId + "' in parents and mimeType='application/json' and trashed=false") +
+      '&orderBy=modifiedTime+desc&pageSize=1&fields=files(id,name,modifiedTime)';
+    fetch(url, { headers: { Authorization: 'Bearer ' + token } })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.files || !data.files.length) {
+          personaDriveSetStatus('No hay JSON en Drive', 'err'); return;
+        }
+        var file = data.files[0];
+        personaDriveSetStatus('Cargando ' + file.name + '...', '');
+        return fetch('https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media',
+          { headers: { Authorization: 'Bearer ' + token } });
+      })
+      .then(function(r) { return r ? r.json() : null; })
+      .then(function(jsonData) {
+        if (!jsonData) return;
+        if (typeof procesarJSONCargado === 'function') {
+          procesarJSONCargado(jsonData);
+          personaDriveSetStatus('Cargado desde Drive', 'ok');
+        } else {
+          personaDriveSetStatus('Error: falta procesarJSONCargado()', 'err');
+        }
+      })
+      .catch(function(e) {
+        personaDriveSetStatus('Error al cargar', 'err');
+        console.error('Drive cargar error (persona):', e);
       });
   });
 }
