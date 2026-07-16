@@ -3290,18 +3290,25 @@
       <div class="card">
         <div class="card-title">📧 Email de reunión para Hernán</div>
         <div class="card-body" style="margin-bottom:14px;">
-          <p style="font-size:13px; color:var(--gray-600);">Genera un email con la información operativa de la reunión (compromisos, eventos y publicaciones, colaboraciones, GMB, reseñas, equipamiento...). No incluye el estado inicial ni notas internas para Javi.</p>
+          <p style="font-size:13px; color:var(--gray-600);">Genera el email, corrígelo directamente aquí si hace falta, y márcalo como enviado para dejarlo guardado en el histórico.</p>
         </div>
         <button class="btn btn-primary" onclick="generarEmailPersona()" style="margin-bottom:12px;">Generar email</button>
         <div class="input-block">
           <label class="input-label">Asunto</label>
-          <input type="text" id="hernan-email-asunto" readonly style="font-weight:700;"/>
+          <input type="text" id="hernan-email-asunto" oninput="guardarEmailActual()"/>
         </div>
         <div class="input-block">
-          <label class="input-label">Cuerpo</label>
-          <textarea id="hernan-email-cuerpo" rows="18" readonly></textarea>
+          <label class="input-label">Cuerpo (editable)</label>
+          <textarea id="hernan-email-cuerpo" rows="20" oninput="guardarEmailActual()"></textarea>
         </div>
-        <button class="btn" onclick="copiarEmailPersona()">Copiar email</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn" onclick="copiarEmailPersona()">Copiar email</button>
+          <button class="btn btn-primary" onclick="marcarEmailEnviado()" style="background:var(--green);">✓ Marcar como enviado</button>
+        </div>
+        <div style="margin-top:18px;">
+          <div class="input-label" style="margin-bottom:8px;">Histórico de emails enviados</div>
+          <div id="hernan-email-historial"></div>
+        </div>
       </div>
     </section>
   </main>
@@ -3792,6 +3799,8 @@ function initState(person) {
     pills: {},
     commitments: JSON.parse(JSON.stringify(PERSON_CONFIG[person].defaults)),
     eventos: [],
+    email_actual: { asunto: '', cuerpo: '' },
+    historial_emails: [],
     history: { reuniones_anteriores: [], compromisos_cumplidos: [] }
   };
 }
@@ -3813,6 +3822,8 @@ function loadState(person) {
     const raw = localStorage.getItem(storageKey(person));
     const s = raw ? JSON.parse(raw) : initState(person);
     if (!s.eventos) s.eventos = [];
+    if (!s.historial_emails) s.historial_emails = [];
+    if (!s.email_actual) s.email_actual = { asunto: '', cuerpo: '' };
     return s;
   } catch (e) { return initState(person); }
 }
@@ -3894,6 +3905,11 @@ function selectPerson(person) {
     renderCommitments();
     renderEventos();
     renderHistory();
+    renderHistorialEmails();
+    if (document.getElementById(person + '-email-asunto')) {
+      document.getElementById(person + '-email-asunto').value = (state.email_actual && state.email_actual.asunto) || '';
+      document.getElementById(person + '-email-cuerpo').value = (state.email_actual && state.email_actual.cuerpo) || '';
+    }
   }
 }
 
@@ -4020,6 +4036,16 @@ function siguienteEstadoPub(estado) {
   if (estado === 'hecho') return 'no_hecho';
   return 'pendiente';
 }
+function momentoPubInfo(momento) {
+  if (momento === 'durante') return { label: 'DURANTE', color: '#8a5cf6' };
+  if (momento === 'despues') return { label: 'DESPUÉS', color: '#3b82f6' };
+  return { label: 'ANTES', color: '#6b7280' };
+}
+function siguienteMomentoPub(momento) {
+  if (momento === 'antes' || !momento) return 'durante';
+  if (momento === 'durante') return 'despues';
+  return 'antes';
+}
 
 function renderEventos() {
   const container = document.getElementById(currentPerson + '-eventos-list');
@@ -4033,6 +4059,7 @@ function renderEventos() {
 
     const pubsHtml = (ev.publicaciones || []).map((p, pIdx) => {
       const info = estadoPubInfo(p.estado);
+      const minfo = momentoPubInfo(p.momento);
       return `
         <div style="border-top:1px solid var(--gray-200); padding:12px 0;" data-pub-row="${eIdx}-${pIdx}">
           <div style="display:flex; justify-content:space-between; gap:8px; align-items:flex-start;">
@@ -4040,7 +4067,10 @@ function renderEventos() {
               <div class="input-label" style="margin-bottom:4px;">Publicación</div>
               <div contenteditable="true" data-eidx="${eIdx}" data-pidx="${pIdx}" data-pfield="descripcion" style="font-size:14px; font-weight:600; padding:4px 0; border-bottom:1px dashed var(--gray-200);">${escapeHtml(p.descripcion || '')}</div>
             </div>
-            <button class="estado-pub-badge" data-eidx="${eIdx}" data-pidx="${pIdx}" style="cursor:pointer; border:none; border-radius:100px; padding:5px 12px; font-size:11px; font-weight:800; letter-spacing:0.05em; color:white; background:${info.color}; white-space:nowrap;">${info.label}</button>
+            <div style="display:flex; gap:6px;">
+              <button class="momento-pub-badge" data-eidx="${eIdx}" data-pidx="${pIdx}" style="cursor:pointer; border:none; border-radius:100px; padding:5px 10px; font-size:10px; font-weight:800; letter-spacing:0.05em; color:white; background:${minfo.color}; white-space:nowrap;">${minfo.label}</button>
+              <button class="estado-pub-badge" data-eidx="${eIdx}" data-pidx="${pIdx}" style="cursor:pointer; border:none; border-radius:100px; padding:5px 12px; font-size:11px; font-weight:800; letter-spacing:0.05em; color:white; background:${info.color}; white-space:nowrap;">${info.label}</button>
+            </div>
           </div>
           <div style="display:grid; grid-template-columns:0.7fr 1fr 1fr; gap:10px; margin-top:8px;">
             <div>
@@ -4095,11 +4125,18 @@ function renderEventos() {
       renderEventos(); saveState();
     };
   });
+  container.querySelectorAll('.momento-pub-badge').forEach(el => {
+    el.onclick = () => {
+      const pub = state.eventos[el.dataset.eidx].publicaciones[el.dataset.pidx];
+      pub.momento = siguienteMomentoPub(pub.momento);
+      renderEventos(); saveState();
+    };
+  });
   container.querySelectorAll('[data-add-pub]').forEach(el => {
     el.onclick = () => {
       const eIdx = el.dataset.addPub;
       if (!state.eventos[eIdx].publicaciones) state.eventos[eIdx].publicaciones = [];
-      state.eventos[eIdx].publicaciones.push({ descripcion: 'Nueva publicación', responsable: '', necesitamos: '', etiquetas: '', estado: 'pendiente' });
+      state.eventos[eIdx].publicaciones.push({ descripcion: 'Nueva publicación', responsable: '', momento: 'antes', necesitamos: '', etiquetas: '', estado: 'pendiente' });
       renderEventos(); saveState();
     };
   });
@@ -4126,13 +4163,14 @@ function addEvento() {
     nombre: 'Nuevo evento',
     fecha: '',
     publicaciones: [
-      { descripcion: 'Crear evento en Strava', responsable: 'Moi', necesitamos: 'Fecha, lugar y detalles del evento', etiquetas: '', estado: 'pendiente' },
-      { descripcion: 'Instagram: publicación de lanzamiento (similar a la de Strava)', responsable: 'Hernan', necesitamos: '', etiquetas: '', estado: 'pendiente' },
-      { descripcion: 'Colaboración con Juanma, Dani o compañero de tienda para captar apuntados', responsable: 'Hernan', necesitamos: '', etiquetas: 'Juanma Furio, Dani', estado: 'pendiente' },
-      { descripcion: 'Recordatorio en Strava una semana antes del evento', responsable: 'Moi', necesitamos: '', etiquetas: '', estado: 'pendiente' },
-      { descripcion: 'Recordatorio en Instagram una semana antes (contenido nuevo, no repetir el de lanzamiento)', responsable: 'Hernan', necesitamos: '', etiquetas: '', estado: 'pendiente' },
-      { descripcion: 'Carrusel resumen del evento (minimo 2 carruseles)', responsable: 'Hernan', necesitamos: 'Fotos/videos del evento', etiquetas: 'Colaboradores del evento', estado: 'pendiente' },
-      { descripcion: 'Video resumen del evento (si da tiempo/material)', responsable: 'Hernan', necesitamos: 'Material de video del evento', etiquetas: '', estado: 'pendiente' }
+      { descripcion: 'Crear evento en Strava', responsable: 'Moi', momento: 'antes', necesitamos: 'Fecha, lugar y detalles del evento', etiquetas: '', estado: 'pendiente' },
+      { descripcion: 'Instagram: publicación de lanzamiento (similar a la de Strava)', responsable: 'Hernan', momento: 'antes', necesitamos: '', etiquetas: '', estado: 'pendiente' },
+      { descripcion: 'Colaboración con Juanma, Dani o compañero de tienda para captar apuntados', responsable: 'Hernan', momento: 'antes', necesitamos: '', etiquetas: 'Juanma Furio, Dani', estado: 'pendiente' },
+      { descripcion: 'Recordatorio en Strava una semana antes del evento', responsable: 'Moi', momento: 'antes', necesitamos: '', etiquetas: '', estado: 'pendiente' },
+      { descripcion: 'Recordatorio en Instagram una semana antes (contenido nuevo, no repetir el de lanzamiento)', responsable: 'Hernan', momento: 'antes', necesitamos: '', etiquetas: '', estado: 'pendiente' },
+      { descripcion: 'Sorpresa durante el evento (bebida especial, sorteo u otra idea)', responsable: 'Hernan', momento: 'durante', necesitamos: 'Definir que sorpresa concreta', etiquetas: '', estado: 'pendiente' },
+      { descripcion: 'Carrusel resumen del evento (minimo 2 carruseles)', responsable: 'Hernan', momento: 'despues', necesitamos: 'Fotos/videos del evento', etiquetas: 'Colaboradores del evento', estado: 'pendiente' },
+      { descripcion: 'Video resumen del evento (si da tiempo/material)', responsable: 'Hernan', momento: 'despues', necesitamos: 'Material de video del evento', etiquetas: '', estado: 'pendiente' }
     ]
   });
   renderEventos(); saveState();
@@ -4176,51 +4214,91 @@ function formatearNombreCampo(key) {
   return key.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
 }
 
+const FRASE_CIERRE_BIKEPHY = '¡¡En Bikephilosophy no vendemos bicicletas, hacemos ciclistas felices!!';
+
 function generarEmailPersona() {
   const person = currentPerson;
   const excluidos = EMAIL_CAMPOS_EXCLUIDOS[person] || [];
   const etiquetas = EMAIL_ETIQUETAS_CAMPO[person] || {};
 
   const nombrePersona = person.charAt(0).toUpperCase() + person.slice(1).replace(/_/g, ' ');
-  let cuerpo = `Hola ${nombrePersona},\n\nAquí tienes el resumen operativo de la reunión de hoy (${state.meta.fecha}):\n\n`;
+  let cuerpo = `Hola ${nombrePersona},\n\nAquí tienes el resumen de la reunión de hoy (${state.meta.fecha}):\n\n`;
 
+  const raya = '━'.repeat(30);
+
+  // --- LO MAS URGENTE (compromisos prioridad alta) ---
+  const urgentes = (state.commitments || []).filter(c => c.priority === 'alta' && !c.done);
+  if (urgentes.length) {
+    cuerpo += `🎯 LO MÁS URGENTE\n${raya}\n`;
+    urgentes.forEach(c => {
+      cuerpo += `🔴 ${c.action}${c.deadline && c.deadline !== '--' ? ' — Plazo: ' + c.deadline : ''}\n`;
+    });
+    cuerpo += '\n';
+  }
+
+  // --- COMPROMISOS (todos) ---
   if (state.commitments && state.commitments.length) {
-    cuerpo += `COMPROMISOS\n${'-'.repeat(40)}\n`;
+    cuerpo += `✅ COMPROMISOS\n${raya}\n`;
     state.commitments.forEach(c => {
       cuerpo += `• ${c.action}\n`;
       cuerpo += `   Responsable: ${c.responsible || '--'} | Plazo: ${c.deadline || '--'}\n\n`;
     });
   }
 
+  // --- EVENTOS (agrupados por momento: antes / durante / despues) ---
   if (state.eventos && state.eventos.length) {
-    cuerpo += `EVENTOS Y PUBLICACIONES\n${'-'.repeat(40)}\n`;
+    cuerpo += `📅 EVENTOS Y PUBLICACIONES\n${raya}\n`;
     state.eventos.forEach(ev => {
-      cuerpo += `* ${ev.nombre}${ev.fecha ? ' (' + ev.fecha + ')' : ''}\n`;
-      (ev.publicaciones || []).forEach(p => {
-        const marca = p.estado === 'hecho' ? '[HECHO]' : p.estado === 'no_hecho' ? '[NO HECHO]' : '[PENDIENTE]';
-        cuerpo += `   ${marca} ${p.descripcion}${p.responsable ? ' (' + p.responsable + ')' : ''}\n`;
-        if (p.necesitamos) cuerpo += `      Necesitamos: ${p.necesitamos}\n`;
-        if (p.etiquetas) cuerpo += `      Etiquetar: ${p.etiquetas}\n`;
+      cuerpo += `${ev.nombre}${ev.fecha ? ' (' + ev.fecha + ')' : ''}\n\n`;
+      const grupos = [
+        { key: 'antes', titulo: 'Antes del evento:' },
+        { key: 'durante', titulo: 'Durante el evento:' },
+        { key: 'despues', titulo: 'Después del evento:' }
+      ];
+      grupos.forEach(g => {
+        const pubs = (ev.publicaciones || []).filter(p => (p.momento || 'antes') === g.key);
+        if (!pubs.length) return;
+        cuerpo += `${g.titulo}\n`;
+        pubs.forEach(p => {
+          const marca = p.estado === 'hecho' ? '[HECHO]' : p.estado === 'no_hecho' ? '[NO HECHO]' : '[PENDIENTE]';
+          cuerpo += `  ${marca} ${p.descripcion}${p.responsable ? ' — ' + p.responsable : ''}\n`;
+          if (p.necesitamos) cuerpo += `      Necesitamos: ${p.necesitamos}\n`;
+          if (p.etiquetas) cuerpo += `      Etiquetar: ${p.etiquetas}\n`;
+        });
+        cuerpo += '\n';
       });
-      cuerpo += '\n';
     });
   }
 
+  // --- OTROS PUNTOS ---
   const camposConContenido = Object.keys(state.fields || {}).filter(k =>
     state.fields[k] && state.fields[k].trim() && !excluidos.includes(k)
   );
   if (camposConContenido.length) {
-    cuerpo += `OTROS PUNTOS\n${'-'.repeat(40)}\n`;
+    cuerpo += `📌 OTROS PUNTOS\n${raya}\n`;
     camposConContenido.forEach(k => {
       const label = etiquetas[k] || formatearNombreCampo(k);
       cuerpo += `${label}:\n${state.fields[k].trim()}\n\n`;
     });
   }
 
-  cuerpo += `Un saludo,\nJavi`;
+  cuerpo += `Un saludo,\nJavi\n\n${FRASE_CIERRE_BIKEPHY}`;
 
-  document.getElementById(person + '-email-asunto').value = `Reunión Bikephilosophy - ${state.meta.fecha}`;
-  document.getElementById(person + '-email-cuerpo').value = cuerpo;
+  state.email_actual = {
+    asunto: `Bikephilosophy — Resumen reunión ${state.meta.fecha}`,
+    cuerpo: cuerpo
+  };
+  document.getElementById(person + '-email-asunto').value = state.email_actual.asunto;
+  document.getElementById(person + '-email-cuerpo').value = state.email_actual.cuerpo;
+  saveState();
+}
+
+function guardarEmailActual() {
+  const person = currentPerson;
+  if (!state.email_actual) state.email_actual = { asunto: '', cuerpo: '' };
+  state.email_actual.asunto = document.getElementById(person + '-email-asunto').value;
+  state.email_actual.cuerpo = document.getElementById(person + '-email-cuerpo').value;
+  saveState();
 }
 
 function copiarEmailPersona() {
@@ -4229,6 +4307,51 @@ function copiarEmailPersona() {
   const cuerpo = document.getElementById(person + '-email-cuerpo').value;
   if (!cuerpo) { alert('Primero genera el email.'); return; }
   copyToClipboard(`Asunto: ${asunto}\n\n${cuerpo}`);
+}
+
+function marcarEmailEnviado() {
+  const person = currentPerson;
+  const asunto = document.getElementById(person + '-email-asunto').value;
+  const cuerpo = document.getElementById(person + '-email-cuerpo').value;
+  if (!cuerpo) { alert('Primero genera el email.'); return; }
+  if (!state.historial_emails) state.historial_emails = [];
+  state.historial_emails.unshift({
+    fecha_envio: new Date().toISOString(),
+    fecha_reunion: state.meta.fecha,
+    asunto: asunto,
+    cuerpo: cuerpo
+  });
+  renderHistorialEmails();
+  saveState();
+  alert('Email marcado como enviado y guardado en el histórico.');
+}
+
+function renderHistorialEmails() {
+  const container = document.getElementById(currentPerson + '-email-historial');
+  if (!container) return;
+  const historial = state.historial_emails || [];
+  if (!historial.length) {
+    container.innerHTML = '<p style="color:var(--gray-400); font-style:italic; padding:6px 0;">Aún no se ha marcado ningún email como enviado.</p>';
+    return;
+  }
+  container.innerHTML = historial.map((e, idx) => `
+    <div style="border:1px solid var(--gray-200); border-radius:8px; padding:10px 14px; margin-bottom:8px; background:var(--gray-50);">
+      <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" data-toggle-email="${idx}">
+        <div>
+          <div style="font-weight:700; font-size:13px;">${escapeHtml(e.asunto)}</div>
+          <div style="font-size:11px; color:var(--gray-600); font-family:var(--font-mono);">Enviado: ${new Date(e.fecha_envio).toLocaleString('es-ES')} · Reunión del ${escapeHtml(e.fecha_reunion)}</div>
+        </div>
+        <span style="color:var(--green); font-weight:900; font-size:11px;">✓ ENVIADO</span>
+      </div>
+      <div id="email-hist-body-${idx}" class="hidden" style="margin-top:10px; white-space:pre-wrap; font-size:12px; border-top:1px solid var(--gray-200); padding-top:10px;">${escapeHtml(e.cuerpo)}</div>
+    </div>
+  `).join('');
+  container.querySelectorAll('[data-toggle-email]').forEach(el => {
+    el.onclick = () => {
+      const body = document.getElementById('email-hist-body-' + el.dataset.toggleEmail);
+      body.classList.toggle('hidden');
+    };
+  });
 }
 
 function renderHistory() {
@@ -4289,6 +4412,8 @@ function exportJSON() {
     pills: state.pills,
     compromisos: state.commitments,
     eventos: state.eventos || [],
+    email_actual: state.email_actual || { asunto: '', cuerpo: '' },
+    historial_emails: state.historial_emails || [],
     history: state.history,
     confidencial: true
   };
@@ -4381,6 +4506,10 @@ function procesarJSONCargado(data) {
 
     // Los eventos se mantienen tal cual venian en el JSON (seguimiento continuo entre reuniones)
     state.eventos = data.eventos || [];
+
+    // El historial de emails se acumula entre reuniones; el email actual se limpia para la nueva reunion
+    state.historial_emails = data.historial_emails || [];
+    state.email_actual = { asunto: '', cuerpo: '' };
 
     state.history.reuniones_anteriores.push({
       fecha: fechaAnterior,
