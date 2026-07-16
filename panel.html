@@ -3714,6 +3714,9 @@
   <button class="btn" id="btn-load-json">Cargar JSON</button>
   <button class="btn" id="btn-export-json">Exportar JSON</button>
   <button class="btn" id="btn-export-report">Reporte texto</button>
+  <button class="drive-btn-cargar" id="btn-persona-drive-cargar">&#9729; Cargar desde Drive</button>
+  <button class="drive-btn-guardar" id="btn-persona-drive-guardar">&#9729; Guardar en Drive</button>
+  <span class="drive-status" id="persona-drive-status"></span>
   <button class="btn" onclick="window.print()">Imprimir</button>
   <button class="btn btn-primary" id="btn-reset">Nueva reunión</button>
 </div>
@@ -4083,6 +4086,47 @@ function exportReport() {
   ]);
 }
 
+function procesarJSONCargado(data) {
+  try {
+    if (data.persona !== currentPerson) {
+      if (!confirm(`Este JSON es de ${data.persona}. Quieres cargarlo aqui (${currentPerson}) igualmente?`)) return;
+    }
+
+    // Move history forward
+    if (data.history) {
+      state.history.reuniones_anteriores = data.history.reuniones_anteriores || [];
+      state.history.compromisos_cumplidos = data.history.compromisos_cumplidos || [];
+    }
+
+    const fechaAnterior = data.fecha || data.fecha_exportacion?.split('T')[0] || 'desconocida';
+    const compromisosAnteriores = data.compromisos || [];
+
+    const cumplidosNuevos = compromisosAnteriores.filter(c => c.done).map(c => ({
+      ...c, fecha_origen: c.fecha_origen || fechaAnterior, fecha_cumplido: fechaAnterior
+    }));
+    state.history.compromisos_cumplidos = [...state.history.compromisos_cumplidos, ...cumplidosNuevos];
+
+    const heredados = compromisosAnteriores.filter(c => !c.done).map(c => ({
+      ...c, heredado: true, fecha_origen: c.fecha_origen || fechaAnterior
+    }));
+
+    state.commitments = [...heredados, ...JSON.parse(JSON.stringify(PERSON_CONFIG[currentPerson].defaults)).filter(d => !heredados.some(h => h.action === d.action))];
+
+    state.history.reuniones_anteriores.push({
+      fecha: fechaAnterior,
+      compromisos_creados: compromisosAnteriores.length,
+      compromisos_cumplidos_count: cumplidosNuevos.length
+    });
+
+    state.meta.fecha = new Date().toISOString().split('T')[0];
+    saveState();
+    alert(`Cargado: ${state.history.reuniones_anteriores.length} reunion(es) previa(s) - ${state.history.compromisos_cumplidos.length} cumplido(s) acumulado(s) - ${heredados.length} heredado(s).`);
+    location.reload();
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
 function loadJSON(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -4090,40 +4134,8 @@ function loadJSON(e) {
   reader.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
-      if (data.persona !== currentPerson) {
-        if (!confirm(`Este JSON es de ${data.persona}. Quieres cargarlo aqui (${currentPerson}) igualmente?`)) return;
-      }
-
-      // Move history forward
-      if (data.history) {
-        state.history.reuniones_anteriores = data.history.reuniones_anteriores || [];
-        state.history.compromisos_cumplidos = data.history.compromisos_cumplidos || [];
-      }
-
-      const fechaAnterior = data.fecha || data.fecha_exportacion?.split('T')[0] || 'desconocida';
-      const compromisosAnteriores = data.compromisos || [];
-
-      const cumplidosNuevos = compromisosAnteriores.filter(c => c.done).map(c => ({
-        ...c, fecha_origen: c.fecha_origen || fechaAnterior, fecha_cumplido: fechaAnterior
-      }));
-      state.history.compromisos_cumplidos = [...state.history.compromisos_cumplidos, ...cumplidosNuevos];
-
-      const heredados = compromisosAnteriores.filter(c => !c.done).map(c => ({
-        ...c, heredado: true, fecha_origen: c.fecha_origen || fechaAnterior
-      }));
-
-      state.commitments = [...heredados, ...JSON.parse(JSON.stringify(PERSON_CONFIG[currentPerson].defaults)).filter(d => !heredados.some(h => h.action === d.action))];
-
-      state.history.reuniones_anteriores.push({
-        fecha: fechaAnterior,
-        compromisos_creados: compromisosAnteriores.length,
-        compromisos_cumplidos_count: cumplidosNuevos.length
-      });
-
-      state.meta.fecha = new Date().toISOString().split('T')[0];
-      saveState();
-      alert(`Cargado: ${state.history.reuniones_anteriores.length} reunion(es) previa(s) - ${state.history.compromisos_cumplidos.length} cumplido(s) acumulado(s) - ${heredados.length} heredado(s).`);
-      location.reload();
+      procesarJSONCargado(data);
+      return;
     } catch (err) {
       alert('Error: ' + err.message);
     }
@@ -4169,6 +4181,8 @@ document.querySelectorAll('.selector-card').forEach(card => {
 document.getElementById('btn-export-json').onclick = exportJSON;
 document.getElementById('btn-export-report').onclick = exportReport;
 document.getElementById('btn-load-json').onclick = () => document.getElementById('file-input').click();
+document.getElementById('btn-persona-drive-cargar').onclick = () => { if (currentPerson) personaDriveCargar(currentPerson); };
+document.getElementById('btn-persona-drive-guardar').onclick = () => { if (currentPerson) personaDriveGuardar(currentPerson); };
 document.getElementById('file-input').onchange = loadJSON;
 document.getElementById('btn-reset').onclick = () => {
   if (!confirm('Empezar nueva reunion con ' + currentPerson + '? Los datos actuales se perderan si no los has exportado.')) return;
