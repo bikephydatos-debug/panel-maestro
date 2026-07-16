@@ -202,6 +202,7 @@ function personaDriveGuardar(person) {
     fields: state.fields,
     pills: state.pills,
     compromisos: state.commitments,
+    eventos: state.eventos || [],
     history: state.history,
     confidencial: true
   };
