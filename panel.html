@@ -5918,6 +5918,7 @@ function comGenerarEmailInterno(person, data) {
   if (!el) return;
   var kr = data.kpis_resumen || data.kpis || {};
   var diag = data.diagnostico || {};
+  var proy = data.proyeccion || {};
   var s = comState[person];
 
   // Acciones: primero confirmadas del panel, luego del JSON
@@ -5925,10 +5926,11 @@ function comGenerarEmailInterno(person, data) {
   var accionesJSON = data.acciones_confirmadas || data.tareas || [];
   var acciones = accionesPanel.length > 0 ? accionesPanel : accionesJSON;
 
-  // Campanas y productos
+  // Campanas, productos y ventas por campana
   var campData = data.promociones_activas || {};
   var productos = campData.bicicletas_foco || [];
   var campanas = campData.campanas_activas || [];
+  var ventasCampanas = data.ventas_campanas_bikephy || [];
 
   var responsable = (data.responsable || '').split(' ')[0];
   var tienda = data.tienda || '';
@@ -5940,71 +5942,89 @@ function comGenerarEmailInterno(person, data) {
   var posArr = data.positivos || (diag.positivos) || [];
   var negArr = data.negativos || (diag.negativos) || [];
 
-  // Resumen del mes - intro con tono segun resultado, motivador nunca punitivo
+  // Resumen del mes - intro con tono segun resultado
   var resumenMes = diag.resumen_ejecutivo || '';
   var introParrafo = '';
   if (esPositivo) {
     introParrafo =
       responsable + ', ' + resumenMes.split('.')[0] + '.' + '\n\n' +
-      'Eso no pasa por casualidad. Hay metodo, hay actitud y hay un equipo que esta respondiendo. ' +
-      'Se ve y se valora desde aqui.';
+      'Eso no pasa por casualidad. Hay metodo, hay actitud y hay un equipo que esta respondiendo, y eso es merito tuyo y de todo el equipo - sin el trabajo de todos esto no sale. Enhorabuena.';
   } else {
     introParrafo =
       responsable + ', ' + resumenMes.split('.')[0] + '.' + '\n\n' +
-      'Se que este mes esta siendo algo complicado, pero confio en tu trabajo y en el del equipo. ' +
-      'Los numeros son una fotografia del momento, tenemos que seguir trabajando juntos para darle la vuelta.';
+      'Se que este periodo esta siendo algo complicado, pero confio en tu trabajo y en el del equipo. ' +
+      'El 90% de los resultados depende de nuestro trabajo, el 10% de factores externos que no controlamos - nuestra responsabilidad es dar el 100% de lo que si podemos controlar, y para eso estamos.';
   }
 
   // Positivos
   var posStr = posArr.length > 0 ?
-    posArr.map(function(p){ return '+ ' + p; }).join('\n') : '';
+    posArr.map(function(p){ return p; }).join(' ') : '';
 
-  // Negativos (enfocado en mejora, no en culpa)
+  // Negativos
   var negStr = negArr.length > 0 ?
-    negArr.map(function(n){ return '- ' + n; }).join('\n') : '';
+    negArr.map(function(n){ return n; }).join(' ') : '';
 
-  // Acciones formateadas 1 por 1, con prioridad y plazo
+  // Acciones formateadas 1 por 1, con KPI en linea propia (sin parentesis) y Prioridad/Plazo
   var accionesStr = '';
   if (acciones.length > 0) {
     accionesStr = acciones.map(function(a, i) {
       var texto = a.accion || a.titulo || '';
+      var kpi = a.kpi_impactado || '';
       var prior = a.prioridad ? a.prioridad.toUpperCase().replace(/_/g, ' ') : '';
       var plazo = a.plazo || '';
-      return (i+1) + '. ' + texto + '\n' +
-        (prior ? '   Prioridad: ' + prior : '') +
-        (plazo ? ' | Plazo: ' + plazo : '');
-    }).join('\n');
+      var linea = (i+1) + '. ' + texto;
+      if (kpi) linea += '\n   KPI en el que impacta: ' + kpi;
+      if (prior || plazo) linea += '\n   ' + (prior ? 'Prioridad: ' + prior : '') + (plazo ? ' | Plazo: ' + plazo : '');
+      return linea;
+    }).join('\n\n');
   } else {
     accionesStr = 'Sin acciones registradas en esta reunion.';
   }
 
-  // Productos 1 por 1
+  // Productos y campanas fijas
   var productosStr = productos.map(function(p){ return '- ' + p; }).join('\n');
-
-  // Campanas 1 por 1
   var campanasStr = campanas.map(function(c){ return '- ' + c; }).join('\n');
 
-  // Construir email completo: headers sin ==, con Prioridad/Plazo, firma y lema con exclamacion simple
+  // Ventas por campana interna (bloque VENTAS CAMPANAS BIKEPHY)
+  var ventasCampanasStr = ventasCampanas.length > 0 ?
+    ventasCampanas.map(function(v){ return '- ' + v.campana + ': ' + v.uds + ' uds'; }).join('\n') : '';
+
+  // Cierre atado al tiempo restante del periodo
+  var diasRestantes = null;
+  if (proy.dias_laborables != null && proy.dias_trabajados != null) {
+    diasRestantes = proy.dias_laborables - proy.dias_trabajados;
+  }
+  var cierreTiempo = '';
+  if (diasRestantes != null && diasRestantes > 0) {
+    cierreTiempo = 'Quedan ' + diasRestantes + ' dias laborables para cerrar ' + _mesNombre(periodo).toLowerCase().replace('el proximo mes','este periodo') + ', ';
+  } else {
+    cierreTiempo = 'Con lo que queda de ' + periodo.toLowerCase() + ', ';
+  }
+  var cierreResultado = esPositivo ?
+    'y ya vais por encima del objetivo - ahora toca rematar bien: cerrar presupuestos y no dejar dinero sobre la mesa.' :
+    'y el resultado depende 100% de nosotros - vamos a por ello con todo.';
+
+  // Construir email completo
   var email =
     responsable + ',\n\n' +
-    'Te mando esto para que tengamos por escrito todo lo que hablamos hoy.\n\n' +
-
-    'COMO HA IDO ' + periodo.toUpperCase() + '\n\n' +
+    'Te mando esto para que tengamos por escrito todo lo que hablamos hoy en la reunion.\n\n' +
+    'Vamos con el resumen de ' + periodo.toLowerCase() + '.\n\n' +
     introParrafo + '\n\n' +
 
-    (posStr ? 'Lo que ha ido bien:\n' + posStr + '\n\n' : '') +
+    (posStr ? 'Ahora pasamos a los puntos que van bien:\n\n' + posStr + '\n\n' : '') +
 
-    (negStr ? 'Lo que tenemos que mejorar:\n' + negStr + '\n\n' : '') +
+    (negStr ? 'Ahora pasamos a los puntos en los que hay que poner el foco esta semana:\n\n' + negStr + '\n\n' : '') +
 
-    'ACCIONES ACORDADAS\n\n' +
-    'La proxima semana miraremos estos puntos:\n\n' +
+    'Esta semana miraremos estos puntos:\n\n' +
     accionesStr + '\n\n' +
 
     (campanasStr ? 'CAMPANAS ACTIVAS\n\n' + campanasStr + '\n\n' : '') +
 
     (productosStr ? 'PRODUCTOS A IMPULSAR\n\n' + productosStr + '\n\n' : '') +
 
-    'Vamos a por ' + _mesNombre(periodo).toLowerCase() + ' con energia. Cualquier cosa me dices.\n\n' +
+    (ventasCampanasStr ? 'VENTAS CAMPANAS BIKEPHY\n\n' + ventasCampanasStr + '\n\n' : '') +
+
+    cierreTiempo + cierreResultado + ' Confio en el equipo para lograrlo, y aqui estoy para lo que necesiteis.\n\n' +
     '!En Bikephilosophy no vendemos bicicletas, hacemos ciclistas felices!\n\n' +
     'Un abrazo,\nJavi';
 
