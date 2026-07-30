@@ -13,7 +13,7 @@ p { font-size:15px; margin:0; }
 <body>
 <p>Cargando Panel Maestro...</p>
 <script>
-fetch('panel.html').then(function(r){return r.text();}).then(function(h){document.open();document.write(h);document.close();}).catch(function(e){document.body.innerHTML='<p>Error: '+e.message+'</p>';});
+fetch('panel.html?v=' + Date.now(), {cache: 'no-store'}).then(function(r){return r.text();}).then(function(h){document.open();document.write(h);document.close();}).catch(function(e){document.body.innerHTML='<p>Error: '+e.message+'</p>';});
 </script>
 </body>
 </html>
