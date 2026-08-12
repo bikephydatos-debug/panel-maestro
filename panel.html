@@ -5622,25 +5622,35 @@ function comRenderFromJSON(person, data) {
     }).join('');
   }
 
-  // Acciones from JSON
-  var acciones = data.acciones_confirmadas || data.tareas || [];
-  if (acciones.length && comState[person] && !comState[person].acciones.length) {
-    comState[person].acciones = acciones.map(function(a) {
-      return {
-        id: Date.now() + Math.random(),
-        titulo: a.accion || a.titulo || '',
-        prioridad: (a.prioridad || 'media').toLowerCase().replace(' ','_').replace('_alta','alta').replace('muy_alta','muy-alta'),
-        responsable: a.responsable || '',
-        plazo: a.plazo || '',
-        que: a.accion || '',
-        porque: a.porque || a.causa_raiz || '',
-        como: a.como || '',
-        kpi: a.kpi_impactado || a.kpi || '',
-        actual: a.valor_actual !== undefined ? String(a.valor_actual) : (a.evidencia || ''),
-        objetivo: a.objetivo_siguiente !== undefined ? String(a.objetivo_siguiente) : '',
-        confirmada: false
-      };
-    });
+  // Acciones from JSON: se cargan las confirmadas Y las pendientes,
+  // conservando su estado para que el ciclo Drive -> panel -> Drive no lo pierda.
+  var _normPrio = function(p) {
+    var v = (p === undefined || p === null || p === '') ? 'media' : String(p).toLowerCase().trim();
+    v = v.replace(/\s+/g, '_');
+    if (v === 'muy_alta' || v === 'muyalta') { return 'muy-alta'; }
+    return v;
+  };
+  var _mapAccion = function(a, conf) {
+    return {
+      id: Date.now() + Math.random(),
+      titulo: a.accion || a.titulo || '',
+      prioridad: _normPrio(a.prioridad),
+      responsable: a.responsable || '',
+      plazo: a.plazo || '',
+      que: a.accion || a.que || '',
+      porque: a.porque || a.causa_raiz || '',
+      como: a.como || '',
+      kpi: a.kpi_impactado || a.kpi || '',
+      actual: a.valor_actual !== undefined && a.valor_actual !== null ? String(a.valor_actual) : (a.evidencia || ''),
+      objetivo: a.objetivo_siguiente !== undefined && a.objetivo_siguiente !== null ? String(a.objetivo_siguiente) : '',
+      confirmada: conf
+    };
+  };
+  var accConfirmadas = data.acciones_confirmadas || data.tareas || [];
+  var accPendientes = data.acciones_pendientes || [];
+  if ((accConfirmadas.length || accPendientes.length) && comState[person] && !comState[person].acciones.length) {
+    comState[person].acciones = accConfirmadas.map(function(a) { return _mapAccion(a, true); })
+      .concat(accPendientes.map(function(a) { return _mapAccion(a, false); }));
   }
 
   // Promociones from JSON
