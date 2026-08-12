@@ -22,6 +22,9 @@ var DRIVE_PERSONA_TIPO = {
   hernan: 'persona', moi: 'persona', jesus_roda: 'persona', alejandro: 'persona'
 };
 var driveToken = null;
+var driveTokenExp = 0;
+
+function driveInvalidarToken() { driveToken = null; driveTokenExp = 0; }
 
 function driveSetStatus(person, type, msg, cls) {
   var el = document.getElementById(person + '-drive-' + type + '-status');
@@ -30,8 +33,8 @@ function driveSetStatus(person, type, msg, cls) {
   el.className = 'drive-status' + (cls ? ' ' + cls : '');
 }
 
-function driveGetToken(callback) {
-  if (driveToken) { callback(driveToken); return; }
+function driveGetToken(callback, forzar) {
+  if (driveToken && !forzar && Date.now() < driveTokenExp) { callback(driveToken); return; }
   if (DRIVE_CLIENT_ID === 'PENDIENTE_CLIENT_ID') {
     alert('Falta configurar el Client ID de Google. Contacta con el administrador.');
     return;
@@ -42,6 +45,7 @@ function driveGetToken(callback) {
     callback: function(resp) {
       if (resp.error) { console.error('OAuth error:', resp.error); return; }
       driveToken = resp.access_token;
+      driveTokenExp = Date.now() + (((resp.expires_in ? resp.expires_in : 3600) - 300) * 1000);
       callback(driveToken);
     }
   });
@@ -52,6 +56,7 @@ function driveCargar(person) {
   driveSetStatus(person, 'load', 'Conectando...', '');
   driveGetToken(function(token) {
     var folderId = DRIVE_FOLDER_IDS[person];
+    var ficheroCargado = null;
     var url = 'https://www.googleapis.com/drive/v3/files?q=' +
       encodeURIComponent("'" + folderId + "' in parents and mimeType='application/json' and trashed=false") +
       '&orderBy=modifiedTime+desc&pageSize=1&fields=files(id,name,modifiedTime)';
@@ -62,6 +67,7 @@ function driveCargar(person) {
           driveSetStatus(person, 'load', 'No hay JSON en Drive', 'err'); return;
         }
         var file = data.files[0];
+        ficheroCargado = file;
         driveSetStatus(person, 'load', 'Cargando ' + file.name + '...', '');
         return fetch('https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media',
           { headers: { Authorization: 'Bearer ' + token } });
@@ -71,6 +77,10 @@ function driveCargar(person) {
         var input = document.getElementById(person + '-json-input');
         if (input) input.value = JSON.stringify(jsonData, null, 2);
         comCargarJSON(person);
+        if (comState[person] && ficheroCargado) {
+          comState[person].driveFileId = ficheroCargado.id;
+          comState[person].driveFileName = ficheroCargado.name;
+        }
         driveSetStatus(person, 'load', 'Cargado desde Drive', 'ok');
       })
       .catch(function(e) {
@@ -80,87 +90,110 @@ function driveCargar(person) {
   });
 }
 
-function driveGuardar(person) {
+function driveGuardar(person, _reintento) {
   var s = comState[person];
   if (!s) { driveSetStatus(person, 'save', 'Sin datos para guardar', 'err'); return; }
+  if (!s.fields) { s.fields = {}; }
   comGuardar(person);
+
   var data = s.jsonData || {};
-  var json = {
-    tienda: data.tienda || DRIVE_PERSON_NAMES[person],
-    responsable: data.responsable || '',
-    periodo: data.periodo || '',
-    tipo: data.tipo || '',
-    confidencial: true,
-    kpis_resumen: data.kpis_resumen || data.kpis || {},
-    semaforo_areas: data.semaforo_areas || {},
-    kpis_comercial: data.kpis_comercial || [],
-    kpis_taller: data.kpis_taller || [],
-    vendedores: data.vendedores || [],
-    proyeccion: data.proyeccion || {},
-    diagnostico: data.diagnostico || {},
-    positivos: data.positivos || [],
-    negativos: data.negativos || [],
-    promociones_activas: data.promociones_activas || {},
-    discrepancias: data.discrepancias || [],
-    puntos_ciegos: data.puntos_ciegos || [],
-    fuentes: data.fuentes || {},
-    acciones_confirmadas: (s.acciones || []).filter(function(a){return a.confirmada;}),
-    acciones_pendientes: (s.acciones || []).filter(function(a){return !a.confirmada;}),
-    seguimiento_acciones: data.seguimiento_acciones || [],
-    calidad: { cuestionarios: s.cuestTotal || 0, resenas: s.resenasTotal || 0, personas: s.personasCalidad || [] },
-    reunion: {
-      energia: s.fields['energia'] || '',
-      motivacion: s.fields['motivacion'] || '',
-      notas: s.fields['notas-reunion'] || '',
-      temp_final: s.fields['temp-final'] || '',
-      proxima_reunion: s.fields['proxima-reunion'] || '',
-      accion_javi: s.fields['accion-javi'] || ''
-    },
-    email_editado: s.fields['email-body'] || '',
-    exportado: new Date().toISOString()
+
+  // Partimos de una copia del JSON original para NO perder ningun campo
+  // (calidad_encuestas, ventas_campanas_bikephy, periodo_comparativo,
+  //  objetivos_calendario_web, etc.) y encima escribimos lo editado en la reunion.
+  var json = {};
+  for (var k in data) {
+    if (Object.prototype.hasOwnProperty.call(data, k)) { json[k] = data[k]; }
+  }
+
+  json.tienda = data.tienda || DRIVE_PERSON_NAMES[person];
+  json.confidencial = true;
+
+  // Acciones: solo se sobreescriben si el panel tiene alguna cargada
+  if (s.acciones && s.acciones.length) {
+    json.acciones_confirmadas = s.acciones.filter(function(a){ return a.confirmada; });
+    json.acciones_pendientes  = s.acciones.filter(function(a){ return !a.confirmada; });
+  }
+
+  json.calidad = { cuestionarios: s.cuestTotal || 0, resenas: s.resenasTotal || 0, personas: s.personasCalidad || [] };
+
+  json.reunion = {
+    energia:         s.fields['energia'] || '',
+    motivacion:      s.fields['motivacion'] || '',
+    notas:           s.fields['notas-reunion'] || '',
+    temp_final:      s.fields['temp-final'] || '',
+    proxima_reunion: s.fields['proxima-reunion'] || '',
+    accion_javi:     s.fields['accion-javi'] || ''
   };
-  var fileName = (json.tienda + '_' + (json.periodo || new Date().toISOString().split('T')[0])).replace(/\s/g,'_') + '.json';
+  if (data.reunion) {
+    for (var rk in data.reunion) {
+      if (Object.prototype.hasOwnProperty.call(data.reunion, rk) && !json.reunion[rk]) {
+        json.reunion[rk] = data.reunion[rk];
+      }
+    }
+  }
+
+  if (s.fields['email-body'] !== undefined) { json.email_editado = s.fields['email-body']; }
+  else if (data.email_editado) { json.email_editado = data.email_editado; }
+
+  json.exportado = new Date().toISOString();
+
   var jsonStr = JSON.stringify(json, null, 2);
-  driveSetStatus(person, 'save', 'Guardando...', '');
+  var fileName = s.driveFileName ||
+    ((json.tienda + '_' + (json.periodo || new Date().toISOString().split('T')[0])).replace(/\s/g,'_') + '.json');
+
+  driveSetStatus(person, 'save', _reintento ? 'Reintentando...' : 'Guardando...', '');
+
   driveGetToken(function(token) {
     var folderId = DRIVE_FOLDER_IDS[person];
-    // Buscar si ya existe para sobreescribir
-    var searchUrl = 'https://www.googleapis.com/drive/v3/files?q=' +
-      encodeURIComponent("'" + folderId + "' in parents and name='" + fileName + "' and trashed=false") +
-      '&fields=files(id)';
-    fetch(searchUrl, { headers: { Authorization: 'Bearer ' + token } })
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        var existingId = res.files && res.files.length ? res.files[0].id : null;
-        var url, method;
-        if (existingId) {
-          url = 'https://www.googleapis.com/upload/drive/v3/files/' + existingId + '?uploadType=media';
-          method = 'PATCH';
-        } else {
-          url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-          method = 'POST';
-        }
-        if (existingId) {
-          return fetch(url, {
-            method: method,
-            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-            body: jsonStr
-          });
-        } else {
-          var meta = JSON.stringify({ name: fileName, parents: [folderId] });
-          var boundary = 'bikephy_boundary';
-          var body = '--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + meta +
-            '\r\n--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + jsonStr + '\r\n--' + boundary + '--';
-          return fetch(url, {
-            method: 'POST',
-            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'multipart/related; boundary=' + boundary },
-            body: body
-          });
-        }
-      })
+
+    function comprobar401(r) {
+      if (r.status === 401 || r.status === 403) { var e = new Error('auth'); e.code = 401; throw e; }
+      return r;
+    }
+
+    function subir(existingId) {
+      if (existingId) {
+        return fetch('https://www.googleapis.com/upload/drive/v3/files/' + existingId + '?uploadType=media', {
+          method: 'PATCH',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: jsonStr
+        });
+      }
+      var meta = JSON.stringify({ name: fileName, parents: [folderId], mimeType: 'application/json' });
+      var boundary = 'bikephy_boundary';
+      var body = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + meta +
+        '\r\n--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + jsonStr + '\r\n--' + boundary + '--';
+      return fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'multipart/related; boundary=' + boundary },
+        body: body
+      });
+    }
+
+    // Si sabemos sobre que fichero trabajamos, lo sobreescribimos directamente
+    var localizar;
+    if (s.driveFileId) {
+      localizar = Promise.resolve(s.driveFileId);
+    } else {
+      var searchUrl = 'https://www.googleapis.com/drive/v3/files?q=' +
+        encodeURIComponent("'" + folderId + "' in parents and name='" + fileName + "' and trashed=false") +
+        '&fields=files(id)';
+      localizar = fetch(searchUrl, { headers: { Authorization: 'Bearer ' + token } })
+        .then(comprobar401)
+        .then(function(r) { return r.json(); })
+        .then(function(res) { return (res.files && res.files.length) ? res.files[0].id : null; });
+    }
+
+    localizar
+      .then(subir)
+      .then(comprobar401)
       .then(function(r) { return r.json(); })
       .then(function(result) {
-        if (result.id) {
+        if (result && result.id) {
+          s.driveFileId = result.id;
+          s.driveFileName = fileName;
+          comSaveStateObj(person);
           driveSetStatus(person, 'save', 'Guardado en Drive', 'ok');
           var el = document.getElementById(person + '-estado-guardado');
           if (el) el.textContent = 'Guardado en Drive ' + new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
@@ -170,10 +203,15 @@ function driveGuardar(person) {
         }
       })
       .catch(function(e) {
+        if (e && e.code === 401 && !_reintento) {
+          driveInvalidarToken();
+          driveGuardar(person, true);
+          return;
+        }
         driveSetStatus(person, 'save', 'Error al guardar', 'err');
         console.error('Drive guardar error:', e);
       });
-  });
+  }, _reintento === true);
 }
 
 
