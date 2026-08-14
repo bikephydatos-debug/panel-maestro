@@ -1509,6 +1509,38 @@
     </div>
   </div>
   <div style="flex:1;overflow-y:auto;padding-bottom:40px">
+
+    <!-- === GRUPO: DRIVE E INFORME (bloque anadido) === -->
+    <div class="grupo-card-box" id="grupo-drive-box">
+      <h3 style="margin-bottom:12px;font-size:15px;color:#111111">Informe de Grupo &middot; Drive</h3>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <button onclick="grupoDriveCargar()" style="padding:9px 14px;border-radius:8px;border:1px solid #D0D0C8;background:#FFFFFF;cursor:pointer;font-weight:600;font-size:13px">&#8681; Cargar de Drive</button>
+        <span id="grupo-drive-load-status" class="drive-status"></span>
+        <button onclick="grupoDriveGuardar()" style="padding:9px 14px;border-radius:8px;border:none;background:var(--lime);color:#111111;cursor:pointer;font-weight:700;font-size:13px">&#8679; Guardar en Drive</button>
+        <span id="grupo-drive-save-status" class="drive-status"></span>
+      </div>
+      <div style="font-size:11px;color:#999;margin-top:10px">Carga el informe de Grupo mas reciente de la carpeta del Panel Maestro. Al guardar sobreescribe ese mismo fichero conservando todos sus campos.</div>
+    </div>
+
+    <div class="grupo-card-box" id="grupo-informe-box" style="display:none">
+      <h3 style="margin-bottom:6px;font-size:15px;color:#111111">Informe cargado</h3>
+      <div id="grupo-informe-meta" style="font-size:13px;color:#333;margin-bottom:14px"></div>
+      <div class="grupo-kpi-grid" id="grupo-informe-kpis" style="margin-bottom:18px"></div>
+      <div id="grupo-diagnostico" style="margin-bottom:18px"></div>
+      <div style="margin-bottom:14px">
+        <label for="grupo-notas" style="display:block;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#777;margin-bottom:5px">Notas de la reunion de coordinacion</label>
+        <textarea id="grupo-notas" style="width:100%;min-height:80px;padding:10px;border:1px solid #D0D0C8;border-radius:8px;font-family:inherit;font-size:13px;line-height:1.6;resize:vertical;background:#FFFFFF;color:#111111" placeholder="Que se ha hablado con Moi y a que se ha comprometido"></textarea>
+      </div>
+      <div style="margin-bottom:14px">
+        <label for="grupo-accion-javi" style="display:block;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#777;margin-bottom:5px">Accion para Javi</label>
+        <textarea id="grupo-accion-javi" style="width:100%;min-height:80px;padding:10px;border:1px solid #D0D0C8;border-radius:8px;font-family:inherit;font-size:13px;line-height:1.6;resize:vertical;background:#FFFFFF;color:#111111" placeholder="Lo que tengo que hacer yo antes de la proxima reunion"></textarea>
+      </div>
+      <div>
+        <label for="grupo-email-body" style="display:block;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#777;margin-bottom:5px">Email para Moises</label>
+        <textarea id="grupo-email-body" style="width:100%;min-height:80px;padding:10px;border:1px solid #D0D0C8;border-radius:8px;font-family:inherit;font-size:13px;line-height:1.6;resize:vertical;background:#FFFFFF;color:#111111min-height:220px" placeholder="Cuerpo del email de coordinacion"></textarea>
+      </div>
+    </div>
+
     <div class="grupo-card-box" id="grupo-sin-datos" style="display:none;text-align:center;color:#999;font-style:italic;padding:40px">
       Ninguna tienda tiene informe cargado todavia en este navegador. Carga el JSON de cada tienda en su pantalla (pestana Resumen &gt; Cargar Informe) y vuelve aqui.
     </div>
