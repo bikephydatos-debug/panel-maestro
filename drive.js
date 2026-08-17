@@ -418,6 +418,40 @@ function grupoCapturarCampos() {
   grupoGuardarLocal();
 }
 
+function grupoTono(valor, objetivo, invertir) {
+  // Devuelve verde / ambar / rojo segun cumplimiento. Regla de empresa: >95 verde, 80-94 ambar, <80 rojo.
+  if (valor === null || valor === undefined || objetivo === null || objetivo === undefined || !objetivo) return 'neutro';
+  var pct = (valor / objetivo) * 100;
+  if (invertir) pct = (objetivo / valor) * 100;
+  if (pct >= 95) return 'verde';
+  if (pct >= 80) return 'ambar';
+  return 'rojo';
+}
+
+var GRUPO_TONOS = {
+  verde:  { bg: '#EAF4E0', borde: '#7FB53A', texto: '#25400C', etiqueta: '#4A6B26' },
+  ambar:  { bg: '#FBF2E0', borde: '#D9A02B', texto: '#4A3407', etiqueta: '#7A5A14' },
+  rojo:   { bg: '#FBEAE7', borde: '#C0392B', texto: '#4A1510', etiqueta: '#7A2B21' },
+  neutro: { bg: '#F4F4F0', borde: '#D0D0C8', texto: '#111111', etiqueta: '#6B6B63' }
+};
+
+function grupoCajaKpi(label, valor, tono, referencia) {
+  var t = GRUPO_TONOS[tono] || GRUPO_TONOS.neutro;
+  return '<div style="background:' + t.bg + ';border:1px solid ' + t.borde + ';border-left:5px solid ' + t.borde +
+    ';border-radius:10px;padding:14px 16px">' +
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:' + t.etiqueta + ';margin-bottom:6px">' + label + '</div>' +
+    '<div style="font-size:23px;font-weight:800;line-height:1.15;color:' + t.texto + '">' + valor + '</div>' +
+    (referencia ? '<div style="font-size:11px;color:' + t.etiqueta + ';margin-top:5px">' + referencia + '</div>' : '') +
+    '</div>';
+}
+
+function grupoTitulo(texto) {
+  return '<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">' +
+    '<span style="display:inline-block;width:4px;height:15px;background:var(--lime);border-radius:2px"></span>' +
+    '<span style="font-family:var(--font-display);font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:.7px;color:#111111">' + texto + '</span>' +
+    '</div>';
+}
+
 function grupoRenderInforme() {
   var d = grupoState.jsonData || {};
   var box = document.getElementById('grupo-informe-box');
@@ -437,18 +471,42 @@ function grupoRenderInforme() {
   var proy = d.proyeccion || {};
   var grid = document.getElementById('grupo-informe-kpis');
   if (grid) {
-    grid.innerHTML = [
-      { label: 'Cobros', value: grupoFmtEurLocal(kr.cobros_eur) },
-      { label: 'Objetivo del mes', value: grupoFmtEurLocal(proy.objetivo_eur) },
-      { label: '% sobre prorrateado', value: (kr.cobros_vs_objetivo_pct !== undefined && kr.cobros_vs_objetivo_pct !== null) ? kr.cobros_vs_objetivo_pct + '%' : '--' },
-      { label: 'Proyeccion fin de mes', value: grupoFmtEurLocal(kr.proyeccion_fin_mes_eur) },
-      { label: 'Ratio conversion', value: (kr.ratio_conversion_pct !== undefined && kr.ratio_conversion_pct !== null) ? kr.ratio_conversion_pct + '%' : '--' },
-      { label: 'Ratio llamadas', value: (kr.ratio_llamadas_pct !== undefined && kr.ratio_llamadas_pct !== null) ? kr.ratio_llamadas_pct + '%' : '--' },
-      { label: 'Negocio mes siguiente', value: grupoFmtEurLocal(kr.negocio_mes_siguiente_eur) },
-      { label: 'Semaforo', value: (kr.semaforo || '--').toUpperCase() }
-    ].map(function(k) {
-      return '<div class="grupo-kpi-box"><div class="grupo-kpi-label">' + k.label + '</div><div class="grupo-kpi-value">' + k.value + '</div></div>';
-    }).join('');
+    var objMes = proy.objetivo_eur;
+    var pctProrr = kr.cobros_vs_objetivo_pct;
+    var pctProy = (objMes && kr.proyeccion_fin_mes_eur) ? (kr.proyeccion_fin_mes_eur / objMes * 100) : null;
+    var tonoProrr = (pctProrr === null || pctProrr === undefined) ? 'neutro' : (pctProrr >= 95 ? 'verde' : (pctProrr >= 80 ? 'ambar' : 'rojo'));
+    var tonoProy  = (pctProy === null) ? 'neutro' : (pctProy >= 95 ? 'verde' : (pctProy >= 80 ? 'ambar' : 'rojo'));
+    var tonoSem   = kr.semaforo === 'verde' ? 'verde' : (kr.semaforo === 'amarillo' ? 'ambar' : (kr.semaforo === 'rojo' ? 'rojo' : 'neutro'));
+
+    grid.innerHTML =
+      grupoCajaKpi('Cobros', grupoFmtEurLocal(kr.cobros_eur), tonoProrr,
+        (objMes ? 'Objetivo del mes ' + grupoFmtEurLocal(objMes) : '')) +
+      grupoCajaKpi('% sobre prorrateado', (pctProrr !== undefined && pctProrr !== null ? pctProrr + ' %' : '--'), tonoProrr,
+        'Verde >95 &middot; ambar 80-94 &middot; rojo <80') +
+      grupoCajaKpi('Proyeccion fin de mes', grupoFmtEurLocal(kr.proyeccion_fin_mes_eur), tonoProy,
+        (pctProy !== null ? pctProy.toFixed(1) + ' % del objetivo' : '')) +
+      grupoCajaKpi('Ratio conversion', (kr.ratio_conversion_pct !== undefined && kr.ratio_conversion_pct !== null ? kr.ratio_conversion_pct + ' %' : '--'),
+        grupoTono(kr.ratio_conversion_pct, 32), 'Objetivo 32 %') +
+      grupoCajaKpi('Ratio llamadas', (kr.ratio_llamadas_pct !== undefined && kr.ratio_llamadas_pct !== null ? kr.ratio_llamadas_pct + ' %' : '--'),
+        grupoTono(kr.ratio_llamadas_pct, 100), 'Objetivo 100 %') +
+      grupoCajaKpi('Negocio mes siguiente', grupoFmtEurLocal(kr.negocio_mes_siguiente_eur), 'neutro', 'Pipeline estimado') +
+      grupoCajaKpi('Pendiente de cobro', (kr.pendiente_cobro_pct !== undefined && kr.pendiente_cobro_pct !== null ? kr.pendiente_cobro_pct + ' %' : '--'),
+        grupoTono(kr.pendiente_cobro_pct, 30, true), 'Cuanto mas bajo, mejor') +
+      grupoCajaKpi('Semaforo global', (kr.semaforo || '--').toUpperCase(), tonoSem, '');
+  }
+
+  var areas = document.getElementById('grupo-areas-informe');
+  if (areas) {
+    var sa = d.semaforo_areas || {};
+    var nombres = { comercial_general: 'Comercial', conversion: 'Conversion', taller: 'Taller', satisfaccion: 'Satisfaccion', proyeccion: 'Proyeccion' };
+    var claves = Object.keys(nombres).filter(function(k) { return sa[k]; });
+    areas.innerHTML = claves.length
+      ? grupoTitulo('Semaforo por area') + '<div style="display:flex;gap:10px;flex-wrap:wrap">' + claves.map(function(k) {
+          var tono = sa[k] === 'verde' ? 'verde' : (sa[k] === 'amarillo' ? 'ambar' : 'rojo');
+          var t = GRUPO_TONOS[tono];
+          return '<div style="background:' + t.bg + ';border:1px solid ' + t.borde + ';border-radius:20px;padding:7px 15px;font-size:12px;font-weight:700;color:' + t.texto + '">' + nombres[k] + '</div>';
+        }).join('') + '</div>'
+      : '';
   }
 
   var diag = document.getElementById('grupo-diagnostico');
@@ -463,7 +521,8 @@ function grupoRenderInforme() {
     ].filter(function(p) { return p[1]; });
     diag.innerHTML = partes.length
       ? partes.map(function(p) {
-          return '<div style="margin-bottom:12px"><div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#777;margin-bottom:4px">' + p[0] + '</div><div style="font-size:13px;line-height:1.6;color:#333">' + p[1] + '</div></div>';
+          return '<div style="margin-bottom:16px">' + grupoTitulo(p[0]) +
+            '<div style="font-size:13px;line-height:1.65;color:#2A2A26">' + p[1] + '</div></div>';
         }).join('')
       : '<div style="color:#999;font-style:italic">Sin diagnostico en el JSON.</div>';
   }
