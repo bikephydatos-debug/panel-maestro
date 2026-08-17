@@ -769,3 +769,27 @@ function grupoAvisoHistorico() {
     el.style.display = 'none';
   }
 }
+// =============================================
+// REFRESCO DE CICLO
+// Si el periodo del JSON es distinto al ultimo cargado, vacia acciones,
+// productos y campanas para que se reimporten del JSON nuevo.
+// Si es el mismo periodo, conserva las ediciones hechas a mano.
+// =============================================
+window.addEventListener('load', function() {
+  if (typeof comRenderFromJSON !== 'function') { return; }
+  var _origComRenderFromJSON = comRenderFromJSON;
+  comRenderFromJSON = function(person, data) {
+    try {
+      if (typeof comState !== 'undefined' && comState && comState[person] && data && data.periodo) {
+        if (comState[person].periodoCargado !== data.periodo) {
+          comState[person].acciones = [];
+          comState[person].productos = [];
+          comState[person].campanas = [];
+          comState[person].periodoCargado = data.periodo;
+          if (typeof comSaveStateObj === 'function') { comSaveStateObj(person); }
+        }
+      }
+    } catch (e) { console.error('Refresco de ciclo:', e); }
+    return _origComRenderFromJSON(person, data);
+  };
+});
