@@ -563,8 +563,10 @@ function grupoDriveCargar() {
         grupoState.driveFileId = ficheroCargado.id;
         grupoState.driveFileName = ficheroCargado.name;
         grupoState.fields = {};
+        grupoState.esHistorico = false;
         grupoGuardarLocal();
         grupoRenderInforme();
+        if (typeof grupoAvisoHistorico === 'function') { grupoAvisoHistorico(); }
         grupoDriveSetStatus('load', 'Cargado desde Drive', 'ok');
       })
       .catch(function(e) {
@@ -578,6 +580,11 @@ function grupoDriveGuardar(_reintento) {
   var d = grupoState.jsonData || {};
   if (!d.periodo && !d.kpis_resumen) {
     grupoDriveSetStatus('save', 'Sin informe cargado', 'err'); return;
+  }
+  if (grupoState.esHistorico && !_reintento) {
+    if (!confirm('Tienes cargado un informe de consulta (' + (grupoState.driveFileName || '') + '), no el de la semana en curso.\n\nSi continuas se sobreescribira ese fichero. Quieres guardar de todas formas?')) {
+      grupoDriveSetStatus('save', 'Guardado cancelado', 'err'); return;
+    }
   }
   grupoCapturarCampos();
 
@@ -678,3 +685,87 @@ window.addEventListener('load', function() {
     abrirVistaGrupo = function() { _origAbrirVistaGrupo(); try { grupoRenderInforme(); } catch(e) {} };
   }
 });
+
+
+// =============================================
+// GRUPO: HISTORICO DE INFORMES  (bloque anadido)
+// No modifica grupoDriveCargar, que sigue trayendo el mas reciente.
+// =============================================
+var grupoHistorico = [];
+
+function grupoDriveListarHistorico() {
+  grupoDriveSetStatus('hist', 'Buscando informes...', '');
+  driveGetToken(function(token) {
+    var url = 'https://www.googleapis.com/drive/v3/files?q=' +
+      encodeURIComponent("'" + GRUPO_DRIVE_FOLDER_ID + "' in parents and mimeType='application/json' and name contains 'grupo' and trashed=false") +
+      '&orderBy=name+desc&pageSize=100&fields=files(id,name,modifiedTime)';
+    fetch(url, { headers: { Authorization: 'Bearer ' + token } })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        grupoHistorico = (data.files || []);
+        var sel = document.getElementById('grupo-historico-select');
+        if (!sel) return;
+        if (!grupoHistorico.length) {
+          sel.innerHTML = '<option value="">No hay informes de Grupo</option>';
+          grupoDriveSetStatus('hist', 'No hay informes en Drive', 'err');
+          return;
+        }
+        sel.innerHTML = grupoHistorico.map(function(f, i) {
+          var fecha = f.modifiedTime ? f.modifiedTime.split('T')[0] : '';
+          return '<option value="' + f.id + '">' + f.name + (fecha ? '  (' + fecha + ')' : '') + '</option>';
+        }).join('');
+        grupoDriveSetStatus('hist', grupoHistorico.length + ' informes disponibles', 'ok');
+      })
+      .catch(function(e) {
+        grupoDriveSetStatus('hist', 'Error al listar', 'err');
+        console.error('Grupo historico listar error:', e);
+      });
+  });
+}
+
+function grupoDriveCargarSeleccionado() {
+  var sel = document.getElementById('grupo-historico-select');
+  if (!sel || !sel.value) { grupoDriveSetStatus('hist', 'Elige un informe primero', 'err'); return; }
+  var id = sel.value;
+  var elegido = null;
+  for (var i = 0; i < grupoHistorico.length; i++) { if (grupoHistorico[i].id === id) { elegido = grupoHistorico[i]; break; } }
+  if (!elegido) { grupoDriveSetStatus('hist', 'Informe no encontrado', 'err'); return; }
+
+  // Marcamos si es un informe antiguo para avisar antes de sobreescribirlo
+  var esUltimo = grupoHistorico.length > 0 && grupoHistorico[0].id === id;
+
+  grupoDriveSetStatus('hist', 'Cargando ' + elegido.name + '...', '');
+  driveGetToken(function(token) {
+    fetch('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media',
+      { headers: { Authorization: 'Bearer ' + token } })
+      .then(function(r) { return r.json(); })
+      .then(function(jsonData) {
+        if (!jsonData) return;
+        grupoState.jsonData = jsonData;
+        grupoState.driveFileId = elegido.id;
+        grupoState.driveFileName = elegido.name;
+        grupoState.esHistorico = !esUltimo;
+        grupoState.fields = {};
+        grupoGuardarLocal();
+        grupoRenderInforme();
+        grupoAvisoHistorico();
+        grupoDriveSetStatus('hist', 'Cargado: ' + elegido.name, 'ok');
+      })
+      .catch(function(e) {
+        grupoDriveSetStatus('hist', 'Error al cargar', 'err');
+        console.error('Grupo historico cargar error:', e);
+      });
+  });
+}
+
+function grupoAvisoHistorico() {
+  var el = document.getElementById('grupo-aviso-historico');
+  if (!el) return;
+  if (grupoState.esHistorico) {
+    el.style.display = 'block';
+    el.innerHTML = '<strong>Estas viendo un informe de consulta, no el de la semana en curso.</strong> ' +
+      'Si guardas, sobreescribiras ' + (grupoState.driveFileName || 'ese fichero') + '. Para volver al actual, pulsa Cargar de Drive.';
+  } else {
+    el.style.display = 'none';
+  }
+}
