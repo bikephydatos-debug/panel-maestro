@@ -793,3 +793,61 @@ window.addEventListener('load', function() {
     return _origComRenderFromJSON(person, data);
   };
 });
+// =============================================
+// BLOQUE VENTAS CAMPANAS BIKEPHY CON LAS 4 TIENDAS
+// El generador de email del panel solo lee ventas_campanas_bikephy, que trae
+// las unidades de la propia tienda. Este envoltorio sustituye ese bloque por el
+// desglose de las cuatro tiendas de ventas_campanas_grupo_comparativa, en orden
+// fijo Marbella / Malaga / Velez / Web. Envuelve comGenerarEmailInterno, asi que
+// cubre tanto "Generar email" como "Restaurar el email original".
+// =============================================
+window.addEventListener('load', function() {
+  if (typeof comGenerarEmailInterno !== 'function') { return; }
+  var ORDEN_TIENDAS = ['Marbella', 'Malaga', 'Velez', 'Web'];
+  var _origGenerarInterno = comGenerarEmailInterno;
+
+  comGenerarEmailInterno = function(person, data) {
+    _origGenerarInterno(person, data);
+    try {
+      var ta = document.getElementById(person + '-email-body');
+      if (!ta || !ta.value) { return; }
+      var comp = (data || {}).ventas_campanas_grupo_comparativa;
+      if (!comp || !comp.por_campana || !comp.por_campana.length) { return; }
+
+      var filas = comp.por_campana.slice().sort(function(a, b) { return (b.total || 0) - (a.total || 0); });
+      var ancho = 0;
+      filas.forEach(function(c) { if ((c.campana || '').length > ancho) { ancho = (c.campana || '').length; } });
+
+      var lineas = filas.map(function(c) {
+        var nombre = c.campana || '';
+        var relleno = new Array(Math.max(1, ancho - nombre.length + 1)).join(' ');
+        var det = ORDEN_TIENDAS.map(function(t) {
+          var v = (c[t] !== undefined && c[t] !== null) ? c[t] : 0;
+          return t + ' ' + v;
+        }).join(' / ');
+        return '- ' + nombre + relleno + '  ' + (c.total || 0) + ' uds   (' + det + ')';
+      });
+
+      var rank = (comp.por_tienda || []).slice()
+        .sort(function(a, b) { return (b.uds || 0) - (a.uds || 0); })
+        .map(function(t) { return t.tienda + ' ' + t.uds; }).join(', ');
+
+      var titulo = 'VENTAS CAMPANAS BIKEPHY' + (comp.periodo ? ' (' + comp.periodo + ', todo el grupo)' : '');
+      var bloque = titulo + '\n\n' + lineas.join('\n') +
+        (rank ? '\n\nTOTAL DEL GRUPO: ' + (comp.total_grupo_uds || '') + ' uds - ' + rank : '');
+
+      var txt = ta.value;
+      var i = txt.indexOf('VENTAS CAMPANAS BIKEPHY');
+      if (i < 0) { return; }
+      var resto = txt.slice(i);
+      var fin = resto.search(/\n\n(?!-)/);
+      var cola = (fin >= 0) ? resto.slice(fin) : '';
+      ta.value = txt.slice(0, i) + bloque + cola;
+      if (typeof comState !== 'undefined' && comState && comState[person] && comState[person].fields) {
+        comState[person].fields['email-body'] = ta.value;
+      }
+    } catch (e) {
+      console.error('Bloque campanas grupo:', e);
+    }
+  };
+});
