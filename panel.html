@@ -5740,6 +5740,8 @@ function comRenderCalidadEncuestas(person, data) {
     notaEl.textContent = '--';
     numEl.textContent = '0';
     if (descEl) descEl.textContent = 'Sin respuestas este periodo.';
+    var boxVacio = document.getElementById(person + '-encuestas-analisis');
+    if (boxVacio) boxVacio.innerHTML = '';
     return;
   }
   notaEl.textContent = (cal.nota_media !== undefined && cal.nota_media !== null) ? Number(cal.nota_media).toFixed(2) : '--';
@@ -5752,6 +5754,42 @@ function comRenderCalidadEncuestas(person, data) {
     });
     descEl.textContent = partes.length ? partes.join(' | ') : '';
   }
+  comRenderEncuestasAnalisis(person, cal, descEl);
+}
+
+// Analisis de resenas: comparativo AA, lectura y resenas bajas con comentario (anadido 28/09/2026)
+function comRenderEncuestasAnalisis(person, cal, descEl) {
+  if (!descEl || !descEl.parentNode) return;
+  var box = document.getElementById(person + '-encuestas-analisis');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = person + '-encuestas-analisis';
+    box.style.cssText = 'font-size:12px;margin-top:10px;line-height:1.5';
+    descEl.parentNode.insertBefore(box, descEl.nextSibling);
+  }
+  var esc = function(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var html = '';
+  var aa = cal.comparativo_aa || null;
+  if (aa && aa.numero_respuestas !== undefined) {
+    html += '<div style="color:var(--gray-400)">A&ntilde;o anterior: n=' + esc(aa.numero_respuestas) + ' &middot; nota ' + (aa.nota_media != null ? Number(aa.nota_media).toFixed(2) : '--') + '</div>';
+  }
+  if (cal.analisis) {
+    html += '<div style="margin-top:8px;color:var(--white,#fff)">' + esc(cal.analisis) + '</div>';
+  }
+  var bajas = cal.resenas_bajas || [];
+  if (bajas.length) {
+    html += '<div style="margin-top:10px;font-weight:600;color:#ff6b6b">Rese&ntilde;as bajas</div>';
+    html += bajas.map(function(r) {
+      var txt = [];
+      if (r.comentario) txt.push('<div><strong>Comentario:</strong> ' + esc(r.comentario) + '</div>');
+      if (r.sugerencia) txt.push('<div><strong>Sugerencia:</strong> ' + esc(r.sugerencia) + '</div>');
+      if (!txt.length) txt.push('<div style="font-style:italic;color:var(--gray-400)">Sin comentario ni sugerencia.</div>');
+      return '<div style="margin-top:6px;padding:8px 10px;border-left:3px solid #ff6b6b;background:rgba(255,107,107,.08);border-radius:4px">' +
+        '<div><strong>' + esc(r.nota) + '/10</strong> &middot; ' + esc(r.fecha) + ' &middot; ' + esc(r.area) + (r.atendido_por ? ' &middot; ' + esc(r.atendido_por) : '') + '</div>' +
+        txt.join('') + '</div>';
+    }).join('');
+  }
+  box.innerHTML = html;
 }
 
 // ---- ACCIONES ----
