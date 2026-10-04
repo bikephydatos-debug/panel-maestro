@@ -851,3 +851,125 @@ window.addEventListener('load', function() {
     }
   };
 });
+// =============================================
+// TIENDAS: HISTORICO DE INFORMES  (bloque anadido 04/10/2026)
+// Selector para elegir cualquier JSON de la carpeta de la tienda
+// (semanal, cierre de mes, trimestral). No modifica driveCargar,
+// que sigue trayendo el mas reciente.
+// =============================================
+var tiendaHistorico = {};
+
+function tiendaHistSetStatus(person, msg, cls) {
+  var el = document.getElementById(person + '-drive-hist-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'drive-status' + (cls ? ' ' + cls : '');
+}
+
+function tiendaAvisoHistorico(person, mostrar, nombre) {
+  var el = document.getElementById(person + '-aviso-historico');
+  if (!el) return;
+  if (mostrar) {
+    el.style.display = 'block';
+    el.innerHTML = '<strong>Estas viendo un informe de consulta, no el mas reciente.</strong> ' +
+      'Si guardas, sobreescribiras ' + (nombre || 'ese fichero') + '. Para volver al ultimo, pulsa Cargar desde Drive.';
+  } else {
+    el.style.display = 'none';
+    el.innerHTML = '';
+  }
+}
+
+function tiendaDriveListarHistorico(person, _reintento) {
+  var folderId = DRIVE_FOLDER_IDS[person];
+  if (!folderId) { tiendaHistSetStatus(person, 'Tienda sin carpeta', 'err'); return; }
+  tiendaHistSetStatus(person, 'Buscando informes...', '');
+  driveGetToken(function(token) {
+    var url = 'https://www.googleapis.com/drive/v3/files?q=' +
+      encodeURIComponent("'" + folderId + "' in parents and mimeType='application/json' and trashed=false") +
+      '&orderBy=modifiedTime+desc&pageSize=100&fields=files(id,name,modifiedTime)';
+    fetch(url, { headers: { Authorization: 'Bearer ' + token } })
+      .then(function(r) {
+        if ((r.status === 401 || r.status === 403) && !_reintento) { var e = new Error('auth'); e.code = 401; throw e; }
+        return r.json();
+      })
+      .then(function(data) {
+        tiendaHistorico[person] = (data && data.files) ? data.files : [];
+        var sel = document.getElementById(person + '-historico-select');
+        if (!sel) return;
+        var lista = tiendaHistorico[person];
+        if (!lista.length) {
+          sel.innerHTML = '<option value="">No hay informes en Drive</option>';
+          tiendaHistSetStatus(person, 'No hay informes en Drive', 'err');
+          return;
+        }
+        sel.innerHTML = lista.map(function(f) {
+          var fecha = f.modifiedTime ? f.modifiedTime.split('T')[0] : '';
+          var nombre = String(f.name).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return '<option value="' + f.id + '">' + nombre + (fecha ? '  (' + fecha + ')' : '') + '</option>';
+        }).join('');
+        tiendaHistSetStatus(person, lista.length + ' informes disponibles', 'ok');
+      })
+      .catch(function(e) {
+        if (e && e.code === 401 && !_reintento) {
+          driveInvalidarToken();
+          tiendaDriveListarHistorico(person, true);
+          return;
+        }
+        tiendaHistSetStatus(person, 'Error al listar', 'err');
+        console.error('Historico tienda listar error:', e);
+      });
+  }, _reintento === true);
+}
+
+function tiendaDriveCargarSeleccionado(person, _reintento) {
+  var sel = document.getElementById(person + '-historico-select');
+  if (!sel || !sel.value) { tiendaHistSetStatus(person, 'Elige un informe primero', 'err'); return; }
+  var id = sel.value;
+  var lista = tiendaHistorico[person] || [];
+  var elegido = null;
+  for (var i = 0; i < lista.length; i++) { if (lista[i].id === id) { elegido = lista[i]; break; } }
+  if (!elegido) { tiendaHistSetStatus(person, 'Informe no encontrado', 'err'); return; }
+  var esUltimo = lista.length > 0 && lista[0].id === id;
+
+  tiendaHistSetStatus(person, 'Cargando ' + elegido.name + '...', '');
+  driveGetToken(function(token) {
+    fetch('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media',
+      { headers: { Authorization: 'Bearer ' + token } })
+      .then(function(r) {
+        if ((r.status === 401 || r.status === 403) && !_reintento) { var e = new Error('auth'); e.code = 401; throw e; }
+        return r.json();
+      })
+      .then(function(jsonData) {
+        if (!jsonData) { tiendaHistSetStatus(person, 'Fichero vacio', 'err'); return; }
+        var input = document.getElementById(person + '-json-input');
+        if (input) input.value = JSON.stringify(jsonData, null, 2);
+        comCargarJSON(person);
+        if (typeof comState !== 'undefined' && comState && comState[person]) {
+          comState[person].driveFileId = elegido.id;
+          comState[person].driveFileName = elegido.name;
+          if (typeof comSaveStateObj === 'function') { comSaveStateObj(person); }
+        }
+        tiendaAvisoHistorico(person, !esUltimo, elegido.name);
+        tiendaHistSetStatus(person, 'Cargado: ' + elegido.name, 'ok');
+      })
+      .catch(function(e) {
+        if (e && e.code === 401 && !_reintento) {
+          driveInvalidarToken();
+          tiendaDriveCargarSeleccionado(person, true);
+          return;
+        }
+        tiendaHistSetStatus(person, 'Error al cargar', 'err');
+        console.error('Historico tienda cargar error:', e);
+      });
+  }, _reintento === true);
+}
+
+// Al cargar el mas reciente con el boton de siempre, se quita el aviso de consulta.
+(function() {
+  if (typeof driveCargar !== 'function') return;
+  var _origDriveCargar = driveCargar;
+  driveCargar = function(person) {
+    try { tiendaAvisoHistorico(person, false); } catch (e) {}
+    return _origDriveCargar.apply(this, arguments);
+  };
+})();
