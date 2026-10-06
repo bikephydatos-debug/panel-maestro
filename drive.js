@@ -80,6 +80,7 @@ function driveCargar(person) {
         if (comState[person] && ficheroCargado) {
           comState[person].driveFileId = ficheroCargado.id;
           comState[person].driveFileName = ficheroCargado.name;
+          if (typeof comSaveStateObj === 'function') { comSaveStateObj(person); }
         }
         driveSetStatus(person, 'load', 'Cargado desde Drive', 'ok');
       })
@@ -171,18 +172,52 @@ function driveGuardar(person, _reintento) {
       });
     }
 
-    // Si sabemos sobre que fichero trabajamos, lo sobreescribimos directamente
-    var localizar;
-    if (s.driveFileId) {
-      localizar = Promise.resolve(s.driveFileId);
-    } else {
+    function buscarPorNombre() {
       var searchUrl = 'https://www.googleapis.com/drive/v3/files?q=' +
         encodeURIComponent("'" + folderId + "' in parents and name='" + fileName + "' and trashed=false") +
         '&fields=files(id)';
-      localizar = fetch(searchUrl, { headers: { Authorization: 'Bearer ' + token } })
+      return fetch(searchUrl, { headers: { Authorization: 'Bearer ' + token } })
         .then(comprobar401)
         .then(function(r) { return r.json(); })
         .then(function(res) { return (res.files && res.files.length) ? res.files[0].id : null; });
+    }
+
+    // Antes de sobreescribir se comprueba que el fichero de Drive existe, no esta en la
+    // papelera y es del MISMO informe (tienda y periodo). Si es de otro informe no se guarda.
+    function verificar(id) {
+      if (!id) { return null; }
+      var cab = { headers: { Authorization: 'Bearer ' + token } };
+      return fetch('https://www.googleapis.com/drive/v3/files/' + id + '?fields=id,trashed', cab)
+        .then(function(r) {
+          if (r.status === 404) { return null; }
+          comprobar401(r);
+          return r.json();
+        })
+        .then(function(meta) {
+          if (!meta || meta.trashed) { return null; }
+          return fetch('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media', cab)
+            .then(comprobar401)
+            .then(function(r) { return r.json().catch(function() { return {}; }); })
+            .then(function(actual) {
+              var pA = (actual && actual.periodo) || '';
+              var tA = (actual && actual.tienda) || '';
+              var pN = json.periodo || '';
+              var tN = json.tienda || '';
+              if ((pA && pN && pA !== pN) || (tA && tN && tA !== tN)) {
+                var e = new Error('periodo'); e.code = 'PERIODO'; e.detalle = (tA ? tA + ' - ' : '') + pA; throw e;
+              }
+              return id;
+            });
+        });
+    }
+
+    var localizar;
+    if (s.driveFileId) {
+      localizar = Promise.resolve(verificar(s.driveFileId)).then(function(id) {
+        return id ? id : buscarPorNombre().then(verificar);
+      });
+    } else {
+      localizar = buscarPorNombre().then(verificar);
     }
 
     localizar
@@ -193,6 +228,7 @@ function driveGuardar(person, _reintento) {
         if (result && result.id) {
           s.driveFileId = result.id;
           s.driveFileName = fileName;
+          s.jsonData = json;
           comSaveStateObj(person);
           driveSetStatus(person, 'save', 'Guardado en Drive', 'ok');
           var el = document.getElementById(person + '-estado-guardado');
@@ -206,6 +242,11 @@ function driveGuardar(person, _reintento) {
         if (e && e.code === 401 && !_reintento) {
           driveInvalidarToken();
           driveGuardar(person, true);
+          return;
+        }
+        if (e && e.code === 'PERIODO') {
+          driveSetStatus(person, 'save', 'NO guardado: el fichero de Drive es de otro informe (' + e.detalle + '). Vuelve a cargar el informe.', 'err');
+          console.error('Drive guardar: fichero de otro informe', e.detalle);
           return;
         }
         driveSetStatus(person, 'save', 'Error al guardar', 'err');
@@ -972,4 +1013,306 @@ function tiendaDriveCargarSeleccionado(person, _reintento) {
     try { tiendaAvisoHistorico(person, false); } catch (e) {}
     return _origDriveCargar.apply(this, arguments);
   };
+})();
+
+// =============================================
+// TIENDAS: ACCIONES <-> EMAIL SIEMPRE IGUALES Y CARGA LIMPIA  (bloque anadido 06/10/2026)
+// - Al cargar un informe se limpia todo lo del informe anterior (acciones, notas,
+//   reunion, calidad, email y fichero de Drive) y se rellena con el JSON cargado.
+// - Si se cambian las acciones en el email, se actualizan las acciones del panel.
+// - Si se confirman, anaden o eliminan acciones en el panel, se reescribe el bloque
+//   de acciones del email.
+// - Al guardar en Drive, acciones y email salen iguales.
+// =============================================
+var ACC_CABECERA_RE = /^(Estas son las acciones[^\n]*|Esta semana miraremos[^\n]*)$/m;
+var ACC_CAMPOS = ['obs-estado','notas-reunion','cierre-notas','accion-javi','calidad-notas','taller-notas','email-body',
+                  'energia','motivacion','temp-final','proxima-reunion'];
+
+function accNorm(t) {
+  return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function accParecido(a, b) {
+  var A = accNorm(a).split(' ').filter(function(w) { return w.length > 3; });
+  var B = accNorm(b).split(' ').filter(function(w) { return w.length > 3; });
+  if (!A.length || !B.length) { return 0; }
+  var setB = {}; B.forEach(function(w) { setB[w] = true; });
+  var c = 0; A.forEach(function(w) { if (setB[w]) { c++; } });
+  return c / Math.max(A.length, B.length);
+}
+function accPrioTexto(p) { return String(p || 'media').replace(/[-_]/g, ' ').toUpperCase(); }
+function accPrioDesdeTexto(t) {
+  var v = accNorm(t);
+  if (v.indexOf('muy') >= 0) { return 'muy-alta'; }
+  if (v.indexOf('alta') >= 0) { return 'alta'; }
+  if (v.indexOf('baja') >= 0) { return 'baja'; }
+  return 'media';
+}
+function accKpiLinea(a) {
+  if (a.kpi_email !== undefined && a.kpi_email !== null) { return a.kpi_email; }
+  var k = a.kpi || a.kpi_impactado || '';
+  if (k && a.actual && a.objetivo) { k += ', de ' + a.actual + ' a ' + a.objetivo; }
+  return k;
+}
+function accFormatear(lista) {
+  return lista.map(function(a, i) {
+    var linea = (i + 1) + '. ' + (a.que || a.titulo || a.accion || '');
+    var k = accKpiLinea(a);
+    if (k) { linea += '\n   KPI en el que impacta: ' + k; }
+    linea += '\n   Prioridad: ' + accPrioTexto(a.prioridad) + (a.plazo ? ' | Plazo: ' + a.plazo : '');
+    return linea;
+  }).join('\n\n');
+}
+
+// Localiza el bloque de acciones del email y lo trocea en acciones.
+function accLocalizarBloque(txt) {
+  var m = ACC_CABECERA_RE.exec(txt || '');
+  if (!m) { return null; }
+  var ini = m.index + m[0].length;
+  var lineas = txt.slice(ini).split('\n');
+  var pos = ini, fin = ini, items = [], actual = null;
+  for (var i = 0; i < lineas.length; i++) {
+    var l = lineas[i];
+    var t = l.trim();
+    var num = /^\s*(\d+)[\.\)]\s+(.*)$/.exec(l);
+    if (num) {
+      actual = { texto: num[2].trim(), kpi: null, prio: '', plazo: '' };
+      items.push(actual);
+      fin = pos + l.length;
+    } else if (!t) {
+      // linea en blanco dentro del bloque
+    } else if (!items.length && /^Sin acciones/i.test(t)) {
+      fin = pos + l.length;
+    } else if (actual && /^\s/.test(l)) {
+      var k = /^\s*KPI en el que impacta:\s*(.*)$/i.exec(l);
+      var pp = /^\s*Prioridad:\s*(.*?)\s*(?:\||\bI\b)\s*Plazo:\s*(.*)$/i.exec(l);
+      var p1 = /^\s*Prioridad:\s*(.*)$/i.exec(l);
+      var pl = /^\s*Plazo:\s*(.*)$/i.exec(l);
+      if (k) { actual.kpi = k[1].trim(); }
+      else if (pp) { actual.prio = pp[1].trim(); actual.plazo = pp[2].trim(); }
+      else if (p1) { actual.prio = p1[1].trim(); }
+      else if (pl) { actual.plazo = pl[1].trim(); }
+      else { actual.texto += ' ' + t; }
+      fin = pos + l.length;
+    } else {
+      break;
+    }
+    pos += l.length + 1;
+  }
+  return { cabeceraFin: ini, fin: fin, items: items };
+}
+
+// Email -> acciones del panel (las confirmadas). Las pendientes no se tocan.
+function accEmailAAcciones(person) {
+  if (typeof comState === 'undefined' || !comState || !comState[person]) { return false; }
+  var s = comState[person];
+  if (!s.fields) { s.fields = {}; }
+  var txt = s.fields['email-body'] || '';
+  s._emailSync = txt;
+  var b = accLocalizarBloque(txt);
+  if (!b || !b.items.length) { return false; }
+  var todas = s.acciones || [];
+  var conf = todas.filter(function(a) { return a.confirmada; });
+  var pend = todas.filter(function(a) { return !a.confirmada; });
+  var usadas = {};
+  var nuevas = b.items.map(function(it, idx) {
+    var elegido = -1, j;
+    for (j = 0; j < conf.length && elegido < 0; j++) {
+      if (!usadas[j] && accNorm(conf[j].que || conf[j].titulo) === accNorm(it.texto)) { elegido = j; }
+    }
+    if (elegido < 0) {
+      var mejor = 0.4;
+      for (j = 0; j < conf.length; j++) {
+        if (usadas[j]) { continue; }
+        var sc = accParecido(conf[j].que || conf[j].titulo, it.texto);
+        if (sc >= mejor) { mejor = sc; elegido = j; }
+      }
+    }
+    if (elegido < 0 && idx < conf.length && !usadas[idx]) { elegido = idx; }
+    var a = elegido >= 0 ? conf[elegido] : {
+      id: Date.now() + Math.random(), titulo: '', prioridad: 'media', responsable: '', plazo: '',
+      que: '', porque: '', como: '', kpi: '', actual: '', objetivo: '', confirmada: true
+    };
+    if (elegido >= 0) { usadas[elegido] = true; }
+    a.titulo = it.texto;
+    a.que = it.texto;
+    a.kpi_email = it.kpi || '';
+    if (it.kpi) {
+      var r = /\bdel?\s+([\d.,]+\s*(?:%|€|d[ií]as)?)\s+al?\s+([\d.,]+\s*(?:%|€|d[ií]as)?)/i.exec(it.kpi);
+      if (r) { a.actual = r[1].trim(); a.objetivo = r[2].trim(); }
+      if (!a.kpi) { a.kpi = it.kpi; }
+    }
+    if (it.prio) { a.prioridad = accPrioDesdeTexto(it.prio); }
+    if (it.plazo) { a.plazo = it.plazo; }
+    a.confirmada = true;
+    return a;
+  });
+  var antes = JSON.stringify(todas);
+  s.acciones = nuevas.concat(pend);
+  if (JSON.stringify(s.acciones) !== antes) {
+    if (typeof comRenderAcciones === 'function') { comRenderAcciones(person); }
+    if (typeof comSaveStateObj === 'function') { comSaveStateObj(person); }
+    return true;
+  }
+  return false;
+}
+
+// Acciones del panel (confirmadas) -> bloque de acciones del email.
+function accAccionesAEmail(person) {
+  if (typeof comState === 'undefined' || !comState || !comState[person]) { return; }
+  var s = comState[person];
+  if (!s.fields) { s.fields = {}; }
+  var ta = document.getElementById(person + '-email-body');
+  var txt = (ta && ta.value) || s.fields['email-body'] || '';
+  var b = accLocalizarBloque(txt);
+  if (!b) { return; }
+  var conf = (s.acciones || []).filter(function(a) { return a.confirmada; });
+  var bloque = conf.length ? accFormatear(conf) : 'Sin acciones registradas.';
+  var nuevo = txt.slice(0, b.cabeceraFin) + '\n' + bloque + txt.slice(b.fin);
+  if (nuevo === txt) { return; }
+  if (ta) { ta.value = nuevo; }
+  s.fields['email-body'] = nuevo;
+  s._emailSync = nuevo;
+  if (typeof comSaveStateObj === 'function') { comSaveStateObj(person); }
+}
+
+(function() {
+  function envolver(nombre, crear) {
+    if (typeof window[nombre] !== 'function') { return; }
+    window[nombre] = crear(window[nombre]);
+  }
+
+  // Carga limpia: al cargar un informe no queda nada del anterior.
+  envolver('comCargarJSON', function(orig) {
+    return function(person) {
+      try {
+        var input = document.getElementById(person + '-json-input');
+        var data = null;
+        try { data = JSON.parse(input.value.trim()); } catch (e) { data = null; }
+        if (data && typeof comState !== 'undefined' && comState) {
+          if (!comState[person]) { comState[person] = comInitState(person); }
+          var s = comState[person];
+          var cal = data.calidad || {};
+          var reu = data.reunion || {};
+          s.acciones = [];
+          s.productos = [];
+          s.campanas = [];
+          s.personasCalidad = cal.personas || [];
+          s.cuestTotal = cal.cuestionarios || 0;
+          s.resenasTotal = cal.resenas || 0;
+          s.fields = {};
+          ACC_CAMPOS.forEach(function(f) { s.fields[f] = ''; });
+          s.fields['energia'] = reu.energia || '';
+          s.fields['motivacion'] = reu.motivacion || '';
+          s.fields['notas-reunion'] = reu.notas || '';
+          s.fields['temp-final'] = reu.temp_final || '';
+          s.fields['proxima-reunion'] = reu.proxima_reunion || '';
+          s.fields['accion-javi'] = reu.accion_javi || '';
+          s.driveFileId = null;
+          s.driveFileName = null;
+          s.periodoCargado = data.periodo;
+          s._emailSync = undefined;
+          if (typeof comRestoreState === 'function') { comRestoreState(person); }
+        }
+      } catch (e) { console.error('Carga limpia:', e); }
+      return orig.apply(this, arguments);
+    };
+  });
+
+  // Tras pintar un informe, las acciones se igualan con el email.
+  envolver('comRenderFromJSON', function(orig) {
+    return function(person, data) {
+      var r = orig.apply(this, arguments);
+      try { accEmailAAcciones(person); } catch (e) { console.error('Sync email->acciones:', e); }
+      return r;
+    };
+  });
+
+  // Al reabrir el panel se mantiene el email que se estaba editando.
+  envolver('initComercial', function(orig) {
+    return function(person) {
+      var local = null;
+      try {
+        var prev = (typeof comLoadState === 'function') ? comLoadState(person) : null;
+        local = prev && prev.fields ? prev.fields['email-body'] : null;
+      } catch (e) { local = null; }
+      var r = orig.apply(this, arguments);
+      try {
+        var s = comState && comState[person];
+        if (s && local && local.trim() && s.fields && s.fields['email-body'] !== local) {
+          var ta = document.getElementById(person + '-email-body');
+          if (ta) { ta.value = local; }
+          s.fields['email-body'] = local;
+          accEmailAAcciones(person);
+          comSaveStateObj(person);
+        }
+      } catch (e) { console.error('Restaurar email:', e); }
+      return r;
+    };
+  });
+
+  // Cambios en el panel -> email.
+  envolver('comConfirmarAccion', function(orig) {
+    return function(person) {
+      var r = orig.apply(this, arguments);
+      try { accAccionesAEmail(person); } catch (e) { console.error('Sync acciones->email:', e); }
+      return r;
+    };
+  });
+  envolver('comEliminarAccion', function(orig) {
+    return function(person) {
+      var r = orig.apply(this, arguments);
+      try { accAccionesAEmail(person); } catch (e) { console.error('Sync acciones->email:', e); }
+      return r;
+    };
+  });
+  // Las acciones que anade Javi a mano entran confirmadas y van al email.
+  envolver('comAddAccion', function(orig) {
+    return function(person) {
+      var s = (typeof comState !== 'undefined' && comState) ? comState[person] : null;
+      var n = (s && s.acciones) ? s.acciones.length : 0;
+      var r = orig.apply(this, arguments);
+      try {
+        if (s && s.acciones && s.acciones.length > n) {
+          s.acciones[s.acciones.length - 1].confirmada = true;
+          comRenderAcciones(person);
+          comSaveStateObj(person);
+          accAccionesAEmail(person);
+        }
+      } catch (e) { console.error('Sync nueva accion->email:', e); }
+      return r;
+    };
+  });
+
+  // Cambios en el email -> acciones (al dejar de escribir).
+  var temporizadores = {};
+  envolver('comGuardar', function(orig) {
+    return function(person) {
+      var r = orig.apply(this, arguments);
+      try {
+        var s = comState && comState[person];
+        if (s && s.fields && s.fields['email-body'] !== s._emailSync) {
+          clearTimeout(temporizadores[person]);
+          temporizadores[person] = setTimeout(function() {
+            try { accEmailAAcciones(person); } catch (e) { console.error('Sync email->acciones:', e); }
+          }, 800);
+        }
+      } catch (e) { console.error('Sync email->acciones:', e); }
+      return r;
+    };
+  });
+
+  // Al guardar en Drive, acciones y email salen iguales.
+  envolver('driveGuardar', function(orig) {
+    return function(person, _reintento) {
+      try {
+        if (!_reintento && typeof comState !== 'undefined' && comState && comState[person]) {
+          comGuardar(person);
+          clearTimeout(temporizadores[person]);
+          accEmailAAcciones(person);
+        }
+      } catch (e) { console.error('Sync antes de guardar:', e); }
+      return orig.apply(this, arguments);
+    };
+  });
 })();
