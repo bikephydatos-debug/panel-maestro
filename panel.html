@@ -5832,7 +5832,7 @@ function comRenderAcciones(person) {
   var prioColors = { 'muy-alta':'#ff6b6b', 'alta':'var(--yellow)', 'media':'var(--lime)' };
   container.innerHTML = s.acciones.map(function(a, i) {
     var pc = prioColors[a.prioridad] || 'var(--lime)';
-    var kpiInfo = a.kpi ? ('<div class="com-accion-kpi"><span>KPI: <strong>' + a.kpi + '</strong></span>' + (a.actual ? '<span>Ahora: <strong>' + a.actual + '</strong></span>' : '') + (a.objetivo ? '<span style="color:var(--lime)">Objetivo: <strong>' + a.objetivo + '</strong></span>' : '') + '</div>') : '';
+    var kpiInfo = (a.kpi_email || a.kpi) ? ('<div class="com-accion-kpi"><span>KPI: <strong>' + (a.kpi_email || a.kpi) + '</strong></span>' + (a.actual ? '<span>Ahora: <strong>' + a.actual + '</strong></span>' : '') + (a.objetivo ? '<span style="color:var(--lime)">Objetivo: <strong>' + a.objetivo + '</strong></span>' : '') + '</div>') : '';
     return '<div class="com-accion-card ' + (a.prioridad||'') + (a.confirmada?' confirmada':'')+'" style="border-left-color:' + pc + '">' +
       '<div class="com-accion-header">' +
       '<div class="com-accion-titulo">' + (a.titulo||a.que||'-') + '</div>' +
