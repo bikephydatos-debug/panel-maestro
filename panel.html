@@ -5745,6 +5745,7 @@ function comRenderFromJSON(person, data) {
   comRenderPromos(person);
   comRenderPersonasCalidad(person);
   comRenderCalidadEncuestas(person, data);
+  comRenderResenasGoogle(person, data);
 
   // Pre-fill email: si el JSON trae un email ya editado por Javi, restaurarlo tal cual.
   // Si no, generar uno nuevo a partir de los datos.
@@ -5755,6 +5756,46 @@ function comRenderFromJSON(person, data) {
   } else {
     comGenerarEmailInterno(person, data);
   }
+}
+
+// Resenas de Google desde el JSON (campo resenas_google). Anadido 13/10/2026. Solo anade un bloque en la pestana Calidad.
+function comRenderResenasGoogle(person, data) {
+  var notaEl = document.getElementById(person + '-encuestas-nota');
+  if (!notaEl || !notaEl.closest) return;
+  var bloque = notaEl.closest('.com-bloque');
+  if (!bloque || !bloque.parentNode) return;
+  var box = document.getElementById(person + '-google-resenas');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = person + '-google-resenas';
+    box.className = 'com-bloque';
+    box.style.cssText = 'margin-bottom:20px;border-left:4px solid #F9A825;padding-left:16px';
+    bloque.parentNode.insertBefore(box, bloque.nextSibling);
+  }
+  var g = data.resenas_google || null;
+  var esc = function(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var fmtN = function(n) { return (n == null || isNaN(n)) ? '--' : Number(n).toFixed(1).replace('.', ','); };
+  var fmtF = function(f) { return f ? String(f).split('-').reverse().join('/') : ''; };
+  var h = '<h3 style="color:#F9A825">Rese&ntilde;as de Google</h3>';
+  if (!g) {
+    h += '<div style="font-size:12px;color:var(--gray-400)">Sin datos de Google en este informe.</div>';
+    box.innerHTML = h;
+    return;
+  }
+  var lect = g.lecturas || [];
+  var ult = lect.length ? lect[lect.length - 1] : {};
+  var ant = lect.length > 1 ? lect[lect.length - 2] : null;
+  var nuevas = (g.nuevas_semana != null) ? g.nuevas_semana : (ant ? (ult.total - ant.total) : null);
+  h += '<div style="display:flex;gap:32px;align-items:baseline;flex-wrap:wrap;margin:10px 0">' +
+    '<div><div class="com-calidad-counter" style="color:#F9A825">' + fmtN(g.nota_actual != null ? g.nota_actual : ult.nota) + '</div><div style="font-size:11px;color:var(--gray-400)">Nota en Google (0-5)</div></div>' +
+    '<div><div class="com-calidad-counter" style="color:#F9A825;font-size:28px">' + (nuevas == null ? '--' : esc(nuevas)) + '</div><div style="font-size:11px;color:var(--gray-400)">Rese&ntilde;as nuevas en la semana</div></div>' +
+    '<div><div class="com-calidad-counter" style="color:#F9A825;font-size:28px">' + esc(ult.total != null ? ult.total : '--') + '</div><div style="font-size:11px;color:var(--gray-400)">Rese&ntilde;as en total</div></div>' +
+    '</div>';
+  if (ant) {
+    h += '<div style="font-size:12px;color:var(--gray-400)">' + fmtF(ant.fecha) + ': nota ' + fmtN(ant.nota) + ' &middot; ' + esc(ant.total) + ' rese&ntilde;as &rarr; ' + fmtF(ult.fecha) + ': nota ' + fmtN(ult.nota) + ' &middot; ' + esc(ult.total) + ' rese&ntilde;as</div>';
+  }
+  if (g.nota) h += '<div style="font-size:10px;color:var(--gray-400);margin-top:8px;font-style:italic">' + esc(g.nota) + '</div>';
+  box.innerHTML = h;
 }
 
 // Nueva funcion - NO modifica ninguna funcion existente, solo se anade y se llama desde comRenderFromJSON
