@@ -577,6 +577,94 @@ function grupoRenderInforme() {
     if (f === 'notas' && r.notas) { el.value = r.notas; return; }
     if (f === 'accion-javi' && r.accion_javi) { el.value = r.accion_javi; return; }
   });
+  grupoRenderObjetivosSemanales();
+}
+
+// =============================================
+// OBJETIVOS SEMANALES DE TIENDA (vista de Grupo, debajo del email de Moi)
+// Lee d.objetivos_cualitativos del JSON de Grupo. Solo lectura.
+// =============================================
+function grupoRenderObjetivosSemanales() {
+  var cont = document.getElementById('grupo-objetivos-semanales');
+  if (!cont) return;
+  var d = grupoState.jsonData || {};
+  var oc = d.objetivos_cualitativos;
+  if (!oc || !oc.tiendas || !oc.tiendas.length) { cont.innerHTML = ''; return; }
+  var ob = oc.objetivos || {};
+  function tonoDe(v, o) { return (v === null || v === undefined || o === null || o === undefined) ? 'neutro' : grupoTono(v, o); }
+  function fmt(v, suf) { return (v === null || v === undefined || v === '') ? '--' : (String(v).replace('.', ',') + (suf || '')); }
+  function punto(tono) {
+    var t = GRUPO_TONOS[tono] || GRUPO_TONOS.neutro;
+    return '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + t.borde + ';margin-right:8px;flex-shrink:0"></span>';
+  }
+  function fila(label, valorTxt, objTxt, tono) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid #EEEEE8;font-size:12.5px">' +
+      '<span style="display:flex;align-items:center;color:#333">' + punto(tono) + label + '</span>' +
+      '<span style="font-weight:700;color:#111111;white-space:nowrap">' + valorTxt + ' <span style="font-weight:400;color:#999">/ ' + objTxt + '</span></span></div>';
+  }
+  function chip(p) {
+    var obj = (p.objetivo !== undefined && p.objetivo !== null) ? p.objetivo : 6;
+    var t = GRUPO_TONOS[tonoDe(p.n, obj)] || GRUPO_TONOS.neutro;
+    return '<span style="display:inline-block;background:' + t.bg + ';border:1px solid ' + t.borde + ';color:' + t.texto +
+      ';border-radius:14px;padding:4px 10px;font-size:11.5px;font-weight:700;margin:4px 5px 0 0">' + p.nombre + ' ' + fmt(p.n) + '/' + obj +
+      (p.detalle ? ' <span style="font-weight:400">(' + p.detalle + ')</span>' : '') + '</span>';
+  }
+  var h = grupoTitulo('Objetivos semanales de tienda');
+  h += '<div style="font-size:12px;color:#6B6B63;margin-bottom:12px">' +
+    (oc.periodo_semana ? 'Rese&ntilde;as y encuestas: semana ' + oc.periodo_semana : '') +
+    (oc.periodo_mes ? ' &middot; Power BI acumulado ' + oc.periodo_mes : '') + '</div>';
+  var co = oc.coordinacion || [];
+  if (co.length) {
+    h += '<div style="background:#111111;border-radius:10px;padding:12px 14px;margin-bottom:14px">' +
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--lime);margin-bottom:2px">Encuestas &middot; dar ejemplo en tienda</div>' +
+      co.map(chip).join('') + '</div>';
+  }
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px">';
+  h += oc.tiendas.map(function(t) {
+    var rg = t.resenas_google || {}, en = t.encuestas || {};
+    var tonos = [
+      tonoDe(t.presupuestos_llamados_pct, ob.presupuestos_llamados_pct),
+      tonoDe(t.conversion_pct, ob.conversion_pct),
+      tonoDe(t.accesorios_pct, ob.accesorios_pct),
+      tonoDe(rg.nuevas, rg.objetivo),
+      tonoDe(en.total, en.objetivo)
+    ];
+    var verdes = tonos.filter(function(x) { return x === 'verde'; }).length;
+    var tg = GRUPO_TONOS[verdes === 5 ? 'verde' : (verdes >= 3 ? 'ambar' : 'rojo')];
+    var notas = [];
+    if (rg.nota !== undefined && rg.nota !== null) notas.push('Nota Google ' + fmt(rg.nota) + (rg.nota_anterior !== undefined && rg.nota_anterior !== null && rg.nota_anterior !== rg.nota ? ' (antes ' + fmt(rg.nota_anterior) + ')' : ''));
+    notas.push('Nota encuestas ' + fmt(en.nota_media));
+    if (t.conversion_ultima_reunion_pct !== undefined && t.conversion_ultima_reunion_pct !== null) notas.push('Conversi&oacute;n &uacute;ltima reuni&oacute;n ' + fmt(t.conversion_ultima_reunion_pct, ' %'));
+    return '<div style="background:#FFFFFF;border:1px solid #E5E5E0;border-top:4px solid ' + tg.borde + ';border-radius:10px;padding:14px 16px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">' +
+        '<span style="font-family:var(--font-display);font-weight:800;font-size:15px;color:#111111;text-transform:uppercase">' + t.tienda + '</span>' +
+        '<span style="font-size:12px;font-weight:700;color:' + tg.etiqueta + '">' + verdes + '/5 cumplidos</span></div>' +
+      fila('Presupuestos llamados', fmt(t.presupuestos_llamados_pct, ' %'), fmt(ob.presupuestos_llamados_pct, ' %'), tonos[0]) +
+      fila('Conversi&oacute;n', fmt(t.conversion_pct, ' %'), fmt(ob.conversion_pct, ' %'), tonos[1]) +
+      fila('Accesorios', fmt(t.accesorios_pct, ' %'), fmt(ob.accesorios_pct, ' %'), tonos[2]) +
+      fila('Rese&ntilde;as Google nuevas', fmt(rg.nuevas), fmt(rg.objetivo), tonos[3]) +
+      fila('Encuestas', fmt(en.total), fmt(en.objetivo), tonos[4]) +
+      '<div style="font-size:11px;color:#6B6B63;margin-top:8px;line-height:1.5">' + notas.join(' &middot; ') + '</div>' +
+      ((en.personas && en.personas.length) ? '<div style="margin-top:8px"><div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#777">Encuestas por persona</div>' + en.personas.map(chip).join('') + '</div>' : '') +
+      (t.observacion ? '<div style="font-size:11.5px;color:#2A2A26;margin-top:8px;line-height:1.5">' + t.observacion + '</div>' : '') +
+      '</div>';
+  }).join('');
+  h += '</div>';
+  var hi = oc.historico || [];
+  if (hi.length) {
+    var nombres = oc.tiendas.map(function(t) { return t.tienda; });
+    h += '<div style="margin-top:16px">' + grupoTitulo('Evoluci&oacute;n semanal (objetivos cumplidos de 5)') +
+      '<table class="grupo-table"><thead><tr><th>Semana</th>' + nombres.map(function(n) { return '<th>' + n + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      hi.map(function(s) {
+        var v = s.verdes || {};
+        return '<tr><td>' + s.semana + '</td>' + nombres.map(function(n) {
+          var x = v[n];
+          var tt = GRUPO_TONOS[(x === undefined || x === null) ? 'neutro' : (x === 5 ? 'verde' : (x >= 3 ? 'ambar' : 'rojo'))];
+          return '<td style="font-weight:700;color:' + tt.etiqueta + '">' + ((x === undefined || x === null) ? '--' : x + '/5') + '</td>';
+        }).join('') + '</tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  cont.innerHTML = h;
 }
 
 function grupoDriveCargar() {
